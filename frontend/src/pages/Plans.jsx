@@ -4,14 +4,15 @@ import PageHeader from "../components/PageHeader";
 import CtaBanner from "../components/CtaBanner";
 import { PLANS } from "../data/site";
 
+const PLAN_NAMES = ["Basic", "Premium", "Ultra"];
 const FEATURE_MATRIX = [
-  { label: "Unlimited Data", values: [true, true, true] },
-  { label: "High Speed", values: [true, true, true] },
-  { label: "24/7 Support", values: [true, true, true] },
-  { label: "Priority Support", values: [false, true, true] },
-  { label: "Static IP", values: [false, false, true] },
-  { label: "Dedicated Account Manager", values: [false, false, true] },
-  { label: "Free Installation", values: [false, true, true] },
+  { label: "Unlimited Data", values: { Basic: true, Premium: true, Ultra: true } },
+  { label: "High Speed", values: { Basic: true, Premium: true, Ultra: true } },
+  { label: "24/7 Support", values: { Basic: true, Premium: true, Ultra: true } },
+  { label: "Priority Support", values: { Basic: false, Premium: true, Ultra: true } },
+  { label: "Static IP", values: { Basic: false, Premium: false, Ultra: true } },
+  { label: "Dedicated Account Manager", values: { Basic: false, Premium: false, Ultra: true } },
+  { label: "Free Installation", values: { Basic: false, Premium: true, Ultra: true } },
 ];
 
 export default function Plans() {
@@ -97,9 +98,9 @@ export default function Plans() {
             {FEATURE_MATRIX.map((row, idx) => (
               <div key={row.label} className={`grid grid-cols-4 ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"} border-b border-slate-100 last:border-0`}>
                 <div className="p-5 text-sm text-slate-700">{row.label}</div>
-                {row.values.map((v, i) => (
-                  <div key={i} className="p-5 text-center">
-                    {v ? <Check size={18} className="inline text-[#1E88FF]" /> : <span className="text-slate-300">—</span>}
+                {PLAN_NAMES.map((planName) => (
+                  <div key={planName} className="p-5 text-center">
+                    {row.values[planName] ? <Check size={18} className="inline text-[#1E88FF]" /> : <span className="text-slate-300">—</span>}
                   </div>
                 ))}
               </div>

@@ -5,6 +5,13 @@ import PageHeader from "../components/PageHeader";
 import { CONTACT } from "../data/site";
 
 const INITIAL = { name: "", email: "", phone: "", company: "", plan: "Premium", message: "" };
+const SUBMIT_SIMULATION_MS = 700;
+
+const ADDRESS_LINES = [
+  "Block-B Aashima Royal City,",
+  "Bhopal-462043,",
+  "Madhya Pradesh, India",
+];
 
 export default function Contact() {
   const [form, setForm] = useState(INITIAL);
@@ -20,7 +27,7 @@ export default function Contact() {
       toast.success("Thanks! Our team will reach out within 24 hours.");
       setForm(INITIAL);
       setSending(false);
-    }, 700);
+    }, SUBMIT_SIMULATION_MS);
   };
 
   return (
@@ -95,7 +102,7 @@ export default function Contact() {
             <InfoCard icon={Phone} title="Call us" lines={[CONTACT.phone]} href={`tel:${CONTACT.phoneRaw}`} testId="contact-info-phone" />
             <InfoCard icon={Mail} title="Email" lines={[CONTACT.email]} href={`mailto:${CONTACT.email}`} testId="contact-info-email" />
             <InfoCard icon={Globe} title="Website" lines={[CONTACT.web]} href={`https://${CONTACT.web}`} testId="contact-info-web" />
-            <InfoCard icon={MapPin} title="Visit us" lines={["Block-B Aashima Royal City,", "Bhopal-462043,", "Madhya Pradesh, India"]} testId="contact-info-address" />
+            <InfoCard icon={MapPin} title="Visit us" lines={ADDRESS_LINES} testId="contact-info-address" />
           </div>
         </div>
       </section>
@@ -137,8 +144,8 @@ const InfoCard = ({ icon: Icon, title, lines, href, testId }) => {
       </div>
       <div className="mt-4">
         <p className="text-xs font-semibold tracking-widest uppercase text-slate-500">{title}</p>
-        {lines.map((l, i) => (
-          <p key={i} className="mt-1 text-[#0A1A33] font-medium leading-relaxed">{l}</p>
+        {lines.map((l) => (
+          <p key={l} className="mt-1 text-[#0A1A33] font-medium leading-relaxed">{l}</p>
         ))}
       </div>
     </>

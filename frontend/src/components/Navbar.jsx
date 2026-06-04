@@ -11,13 +11,15 @@ const links = [
   { to: "/contact", label: "Contact" },
 ];
 
+const SCROLL_THRESHOLD_PX = 12;
+
 export const Navbar = () => {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => setScrolled(window.scrollY > SCROLL_THRESHOLD_PX);
     onScroll();
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
