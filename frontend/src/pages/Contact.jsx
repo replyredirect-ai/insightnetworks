@@ -5,7 +5,7 @@ import PageHeader from "../components/PageHeader";
 import { CONTACT } from "../data/site";
 
 const INITIAL = { name: "", email: "", phone: "", company: "", plan: "Premium", message: "" };
-const SUBMIT_SIMULATION_MS = 700;
+const RECIPIENT_EMAIL = "contact@insightnet.in";
 
 const ADDRESS_LINES = [
   "Block-B Aashima Royal City,",
@@ -22,12 +22,30 @@ export default function Contact() {
   const onSubmit = (e) => {
     e.preventDefault();
     setSending(true);
-    // Static site - just simulate
+
+    const subject = `New enquiry from ${form.name || "website visitor"} — ${form.plan}`;
+    const bodyLines = [
+      `Name: ${form.name}`,
+      `Email: ${form.email}`,
+      `Phone: ${form.phone || "—"}`,
+      `Company: ${form.company || "—"}`,
+      `Interested Plan: ${form.plan}`,
+      "",
+      "Message:",
+      form.message,
+      "",
+      "— Sent via insightnet.in contact form",
+    ];
+    const mailto = `mailto:${RECIPIENT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+
+    // Open the user's default email client with pre-filled message
+    window.location.href = mailto;
+
+    toast.success("Opening your email app... please tap Send to deliver your message.");
     setTimeout(() => {
-      toast.success("Thanks! Our team will reach out within 24 hours.");
       setForm(INITIAL);
       setSending(false);
-    }, SUBMIT_SIMULATION_MS);
+    }, 800);
   };
 
   return (
