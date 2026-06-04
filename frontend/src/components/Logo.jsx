@@ -1,30 +1,33 @@
 import { Link } from "react-router-dom";
+import markImg from "../assets/insight-logo-mark.png";
+import fullImg from "../assets/insight-logo-full.png";
 
-export const Logo = ({ variant = "dark", showTagline = true, className = "" }) => {
-  const textColor = variant === "dark" ? "text-[#0A1A33]" : "text-white";
-  const subColor = variant === "dark" ? "text-slate-500" : "text-slate-300";
-
+/**
+ * Logo - official Insight Networks logo.
+ *
+ * Props
+ *   showTagline   true → full lockup with tagline (for footer / hero)
+ *                 false → compact mark (insight + arrow + NETWORKS, no tagline)
+ *   size         tailwind height class
+ */
+export const Logo = ({ showTagline = false, size, className = "" }) => {
+  const src = showTagline ? fullImg : markImg;
+  const h = size || (showTagline ? "h-24" : "h-12");
   return (
-    <Link to="/" data-testid="logo-link" className={`inline-flex items-center gap-2 group ${className}`}>
-      <div className="flex flex-col leading-none">
-        <div className="flex items-baseline gap-1">
-          <span className={`font-display font-extrabold text-2xl tracking-tight ${textColor}`}>
-            insight
-          </span>
-          {/* arrow accent */}
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="-translate-y-2">
-            <path d="M2 7L12 7M12 7L7 2M12 7L7 12" stroke="#1E88FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-        <span className={`font-display text-[10px] font-semibold tracking-[0.32em] mt-0.5 ${textColor}`}>
-          N E T W O R K S
-        </span>
-        {showTagline && (
-          <span className={`text-[8px] tracking-[0.18em] mt-1 ${subColor} font-medium`}>
-            CONNECTING TODAY. POWERING TOMORROW.
-          </span>
-        )}
-      </div>
+    <Link
+      to="/"
+      data-testid="logo-link"
+      aria-label="Insight Networks — home"
+      className={`inline-flex items-center ${className}`}
+    >
+      <img
+        src={src}
+        alt="Insight Networks"
+        className={`${h} w-auto object-contain`}
+      />
+      <span className="sr-only">
+        Insight Networks — Connecting Today. Powering Tomorrow.
+      </span>
     </Link>
   );
 };

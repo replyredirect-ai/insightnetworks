@@ -9,8 +9,8 @@ export const Footer = () => {
       <div className="container mx-auto px-6 lg:px-8 relative">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           <div className="lg:col-span-1">
-            <div className="bg-white/5 inline-block rounded-xl p-4 border border-white/10">
-              <Logo variant="light" />
+            <div className="bg-white rounded-xl p-5 inline-block">
+              <Logo showTagline={true} size="h-28" />
             </div>
             <p className="mt-6 text-sm text-slate-400 leading-relaxed max-w-xs">
               Building India&apos;s most reliable enterprise network. From fiber to firewalls, we keep your business connected.

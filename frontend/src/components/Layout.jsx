@@ -13,7 +13,7 @@ export const Layout = () => {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <Navbar />
-      <main key={pathname} className="flex-1 pt-20 page-fade">
+      <main key={pathname} className="flex-1 pt-24 page-fade">
         <Outlet />
       </main>
       <Footer />

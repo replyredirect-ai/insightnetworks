@@ -35,8 +35,8 @@ export const Navbar = () => {
       }`}
     >
       <div className="container mx-auto px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          <Logo showTagline={false} />
+        <div className="flex items-center justify-between h-24">
+          <Logo showTagline={false} size="h-14" />
 
           <nav className="hidden lg:flex items-center gap-1">
             {links.map((l) => (
