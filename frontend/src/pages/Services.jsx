@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 
+const SERVICES_BG = "https://images.unsplash.com/photo-1604869515882-4d10fa4b0492?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwxfHxmaWJlciUyMG9wdGljc3xlbnwwfHx8fDE3ODA2NDIxMTJ8MA&ixlib=rb-4.1.0&q=85";
+
 export default function Services() {
   const [selectedService, setSelectedService] = useState(null);
 
@@ -21,6 +23,7 @@ export default function Services() {
         title="Engineering the backbone of"
         accent="modern business."
         subtitle="From fibre splicing in the field to firewall policies in the data centre — Insight Networks delivers every layer of connectivity your business depends on."
+        backgroundImage={SERVICES_BG}
       />
 
       <section className="container mx-auto px-6 lg:px-8 py-20 lg:py-28">

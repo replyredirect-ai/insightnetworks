@@ -113,7 +113,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Glass-morphism Banner Effect */
-.glass-banner-overlay {
+.glass-banner-overlay,
+.professional-glass-banner {
     background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -127,7 +128,8 @@ h1, h2, h3, h4, h5, h6 {
     100% { background-position: 200% center; }
 }
 
-.glass-banner-overlay::before {
+.glass-banner-overlay::before,
+.professional-glass-banner::before {
     content: '';
     position: absolute;
     inset: 0;

@@ -6,6 +6,7 @@ import { CONTACT } from "../data/site";
 
 const INITIAL = { name: "", email: "", phone: "", company: "", plan: "Premium", message: "" };
 const RECIPIENT_EMAIL = "contact@insightnet.in";
+const CONTACT_BG = "https://images.unsplash.com/photo-1531973576160-7125cd663d86?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwzfHxvZmZpY2UlMjB0ZWFtd29ya3xlbnwwfHx8fDE3ODA2NDIxMTJ8MA&ixlib=rb-4.1.0&q=85";
 
 const ADDRESS_LINES = [
   "Block-B Aashima Royal City,",
@@ -56,6 +57,7 @@ export default function Contact() {
         title="Let&apos;s connect your"
         accent="business."
         subtitle="Tell us what you need, and a network architect will respond within 24 hours with a tailored proposal."
+        backgroundImage={CONTACT_BG}
       />
 
       <section className="container mx-auto px-6 lg:px-8 py-20 lg:py-28">

@@ -4,6 +4,8 @@ import PageHeader from "../components/PageHeader";
 import CtaBanner from "../components/CtaBanner";
 import { PLANS } from "../data/site";
 
+const PLANS_BG = "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMGdyb3d0aHxlbnwwfHx8fDE3ODA2NDIxMTJ8MA&ixlib=rb-4.1.0&q=85";
+
 const PLAN_NAMES = ["Basic", "Premium", "Ultra"];
 const FEATURE_MATRIX = [
   { label: "Unlimited Data", values: { Basic: true, Premium: true, Ultra: true } },
@@ -23,6 +25,7 @@ export default function Plans() {
         title="Bandwidth that scales with"
         accent="your business."
         subtitle="Three straight-forward plans. No fine print, no fair-use clauses, no surprise throttles. Just real, dedicated bandwidth."
+        backgroundImage={PLANS_BG}
       />
 
       <section className="container mx-auto px-6 lg:px-8 py-20 lg:py-28">
