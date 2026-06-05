@@ -1,9 +1,19 @@
+import { useState } from "react";
 import PageHeader from "../components/PageHeader";
 import CtaBanner from "../components/CtaBanner";
 import { SERVICES } from "../data/site";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 
 export default function Services() {
+  const [selectedService, setSelectedService] = useState(null);
+
   return (
     <div data-testid="services-page">
       <PageHeader
@@ -32,15 +42,70 @@ export default function Services() {
                   </span>
                 </div>
                 <h3 className="mt-6 font-display text-2xl font-semibold text-[#0A1A33]">{s.title}</h3>
-                <p className="mt-3 text-slate-600 leading-relaxed">{s.detail}</p>
-                <div className="mt-6 inline-flex items-center gap-2 text-[#1E88FF] font-semibold text-sm group-hover:gap-3 transition-all">
+                <p className="mt-3 text-slate-600 leading-relaxed">{s.summary}</p>
+                <button
+                  onClick={() => setSelectedService(s)}
+                  data-testid={`learn-more-${s.title.toLowerCase().replace(/\s+/g, "-")}`}
+                  className="mt-6 inline-flex items-center gap-2 text-[#1E88FF] font-semibold text-sm group-hover:gap-3 transition-all hover:underline"
+                >
                   Learn more <ArrowRight size={16} />
-                </div>
+                </button>
               </div>
             );
           })}
         </div>
       </section>
+
+      {/* Service Detail Modal */}
+      <Dialog open={!!selectedService} onOpenChange={() => setSelectedService(null)}>
+        <DialogContent className="sm:max-w-2xl bg-white border-slate-200" data-testid="service-detail-modal">
+          {selectedService && (
+            <>
+              <DialogHeader>
+                <div className="flex items-start gap-4">
+                  <div className="w-16 h-16 rounded-xl bg-[#1E88FF]/10 flex items-center justify-center shrink-0">
+                    <selectedService.icon size={28} className="text-[#1E88FF]" />
+                  </div>
+                  <div className="flex-1">
+                    <DialogTitle className="font-display text-2xl font-bold text-[#0A1A33]">
+                      {selectedService.title}
+                    </DialogTitle>
+                    <DialogDescription className="mt-2 text-slate-600 leading-relaxed">
+                      {selectedService.summary}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+              
+              <div className="mt-6 space-y-4">
+                <div className="bg-slate-50 rounded-xl p-6 border border-slate-100">
+                  <h4 className="text-xs font-semibold tracking-widest uppercase text-[#1E88FF] mb-3">
+                    Detailed Overview
+                  </h4>
+                  <p className="text-slate-700 leading-relaxed">
+                    {selectedService.detail}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between pt-4">
+                  <button
+                    onClick={() => setSelectedService(null)}
+                    className="text-slate-600 hover:text-[#0A1A33] font-medium transition-colors"
+                  >
+                    Close
+                  </button>
+                  <a
+                    href="/contact"
+                    className="inline-flex items-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] text-white font-semibold px-6 py-3 rounded-full transition-colors"
+                  >
+                    Get Started <ArrowRight size={16} />
+                  </a>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <CtaBanner />
     </div>
