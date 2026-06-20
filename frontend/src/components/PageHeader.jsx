@@ -5,15 +5,15 @@ export const PageHeader = ({ eyebrow, title, subtitle, accent, backgroundImage }
       {backgroundImage && (
         <>
           <div 
-            className="absolute inset-0 bg-cover bg-center"
+            className="absolute inset-0 bg-cover bg-center opacity-70"
             style={{ backgroundImage: `url(${backgroundImage})` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0A1A33]/92 via-[#0A1A33]/85 to-[#0A1A33]/90" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0A1A33]/70 via-[#0A1A33]/60 to-[#0A1A33]/75" />
         </>
       )}
       
-      <div className="absolute inset-0 glow-radial opacity-60" />
-      <div className="absolute inset-0 dot-grid opacity-15" />
+      <div className="absolute inset-0 glow-radial opacity-30" />
+      <div className="absolute inset-0 dot-grid opacity-10" />
       
       {/* Professional Glass-morphism Banner Overlay */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
