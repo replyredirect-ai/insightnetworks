@@ -16,11 +16,6 @@ export default function Home() {
         />
         <div className="absolute inset-0 hero-overlay" />
         <div className="absolute inset-0 dot-grid opacity-10" />
-        
-        {/* Glass-morphism Banner Overlay for Home */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6 lg:px-8">
-          <div className="glass-banner-overlay w-full max-w-7xl h-[90%] rounded-3xl border border-white/10 backdrop-blur-sm bg-white/5 shadow-2xl shadow-black/20"></div>
-        </div>
 
         <div className="container mx-auto px-6 lg:px-8 relative">
           <div className="grid lg:grid-cols-12 gap-10 items-center min-h-[88vh] py-24">
