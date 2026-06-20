@@ -2,7 +2,7 @@ import PageHeader from "../components/PageHeader";
 import CtaBanner from "../components/CtaBanner";
 import { VALUES, STATS } from "../data/site";
 
-const TEAM_IMG = "https://images.pexels.com/photos/7794060/pexels-photo-7794060.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
+const TEAM_IMG = "https://customer-assets.emergentagent.com/job_repo-editor-12/artifacts/ho8dvx1m_ChatGPT%20Image%20Jun%2020%2C%202026%2C%2012_29_41%20PM.png";
 const CITY_IMG = "https://images.unsplash.com/photo-1724243040324-aa945e452d8b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBjaXR5JTIwc2t5bGluZXxlbnwwfHx8fDE3ODA1NjQ2MzB8MA&ixlib=rb-4.1.0&q=85";
 const ABOUT_BG = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxvZmZpY2UlMjB0ZWFtd29ya3xlbnwwfHx8fDE3ODA2NDIxMTJ8MA&ixlib=rb-4.1.0&q=85";
 
