@@ -6,6 +6,7 @@ import Services from "@/pages/Services";
 import Plans from "@/pages/Plans";
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
+import CustomerPortal from "@/pages/CustomerPortal";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
             <Route path="/plans" element={<Plans />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/customer-portal" element={<CustomerPortal />} />
             <Route path="*" element={<Home />} />
           </Route>
         </Routes>
