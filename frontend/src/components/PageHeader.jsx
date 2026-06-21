@@ -1,11 +1,23 @@
+import { useEffect, useState } from "react";
+
 export const PageHeader = ({ eyebrow, title, subtitle, accent, backgroundImage }) => {
+  const [imageLoaded, setImageLoaded] = useState(!backgroundImage);
+
+  useEffect(() => {
+    if (backgroundImage) {
+      const img = new Image();
+      img.src = backgroundImage;
+      img.onload = () => setImageLoaded(true);
+    }
+  }, [backgroundImage]);
+
   return (
     <section className="relative bg-gradient-to-br from-[#0A1A33] via-[#0F2847] to-[#0A1A33] text-white overflow-hidden min-h-[420px] flex items-center">
       {/* Background Image with Transparency */}
       {backgroundImage && (
         <>
           <div 
-            className="absolute inset-0 bg-cover bg-center"
+            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             style={{ backgroundImage: `url(${backgroundImage})` }}
           />
           <div className="absolute inset-0 bg-gradient-to-br from-[#0A1A33]/65 via-[#0A1A33]/55 to-[#0A1A33]/70" />

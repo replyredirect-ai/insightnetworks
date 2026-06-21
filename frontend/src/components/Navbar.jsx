@@ -9,7 +9,7 @@ const links = [
   { to: "/plans", label: "Plans" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
-  { to: "/customer-portal", label: "Customer Portal" },
+  { to: "/dashboard", label: "Dashboard" },
 ];
 
 const SCROLL_THRESHOLD_PX = 12;

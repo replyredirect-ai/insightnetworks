@@ -6,7 +6,9 @@ import Services from "@/pages/Services";
 import Plans from "@/pages/Plans";
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
-import CustomerPortal from "@/pages/CustomerPortal";
+import Dashboard from "@/pages/Dashboard";
+import SubscriberLogin from "@/pages/SubscriberLogin";
+import AdminLogin from "@/pages/AdminLogin";
 
 function App() {
   return (
@@ -19,7 +21,10 @@ function App() {
             <Route path="/plans" element={<Plans />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/customer-portal" element={<CustomerPortal />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/customer-portal" element={<Dashboard />} />
+            <Route path="/subscriber-login" element={<SubscriberLogin />} />
+            <Route path="/admin-login" element={<AdminLogin />} />
             <Route path="*" element={<Home />} />
           </Route>
         </Routes>

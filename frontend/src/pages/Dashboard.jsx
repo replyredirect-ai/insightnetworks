@@ -1,9 +1,9 @@
-import { ExternalLink, CreditCard, Activity, Headphones, User, FileText, Shield, Users } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, CreditCard, Activity, Headphones, User, FileText, Shield, Users } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import CtaBanner from "../components/CtaBanner";
 
 const PORTAL_BG = "https://images.unsplash.com/photo-1551434678-e076c223a692?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxkYXNoYm9hcmQlMjB0ZWNofGVufDB8fHx8MTc4MDY0MjExMnww&ixlib=rb-4.1.0&q=85";
-const XCEEDNET_URL = "https://bhopal.insightnet.in";
 
 const PORTAL_FEATURES = [
   {
@@ -38,18 +38,14 @@ const PORTAL_FEATURES = [
   },
 ];
 
-export default function CustomerPortal() {
-  const handlePortalAccess = (portalType) => {
-    window.open(XCEEDNET_URL, '_blank', 'noopener,noreferrer');
-  };
-
+export default function Dashboard() {
   return (
-    <div data-testid="customer-portal-page">
+    <div data-testid="dashboard-page">
       <PageHeader
-        eyebrow="Customer Portal"
+        eyebrow="Dashboard"
         title="Manage your account"
         accent="anytime, anywhere."
-        subtitle="Access your subscriber account, monitor usage, pay bills, and manage support tickets through our secure customer portal powered by XceedNet."
+        subtitle="Access your account, monitor usage, pay bills, and manage support tickets through our secure dashboard portal."
         backgroundImage={PORTAL_BG}
       />
 
@@ -58,68 +54,18 @@ export default function CustomerPortal() {
         <div className="text-center max-w-2xl mx-auto mb-14">
           <span className="text-[#1E88FF] text-xs font-semibold tracking-[0.25em] uppercase">Portal Access</span>
           <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0A1A33] leading-tight">
-            Choose your portal
+            Choose your dashboard
           </h2>
           <p className="mt-4 text-slate-600">
-            Select the appropriate portal to access your account and manage your services.
+            Select the appropriate dashboard to access your account and manage your services.
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Subscriber Portal Card */}
-          <div 
-            className="group relative bg-white border-2 border-slate-200 rounded-3xl p-10 hover:border-[#1E88FF] hover:shadow-2xl hover:shadow-[#1E88FF]/20 transition-all duration-300"
-            data-testid="subscriber-portal-card"
-          >
-            <div className="absolute -top-4 -right-4 w-24 h-24 bg-[#1E88FF]/10 rounded-full blur-2xl group-hover:bg-[#1E88FF]/20 transition-all" />
-            
-            <div className="relative">
-              <div className="w-16 h-16 rounded-2xl bg-[#1E88FF]/10 flex items-center justify-center group-hover:bg-[#1E88FF] transition-colors mb-6">
-                <Users size={32} className="text-[#1E88FF] group-hover:text-white transition-colors" />
-              </div>
-              
-              <h3 className="font-display text-2xl font-bold text-[#0A1A33] mb-3">
-                Subscriber Portal
-              </h3>
-              
-              <p className="text-slate-600 leading-relaxed mb-6">
-                Access your account dashboard, view bills, monitor data usage, manage support tickets, and update your profile.
-              </p>
-
-              <ul className="space-y-2 mb-8">
-                <li className="flex items-center gap-2 text-sm text-slate-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1E88FF]" />
-                  Bill payment & invoice download
-                </li>
-                <li className="flex items-center gap-2 text-sm text-slate-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1E88FF]" />
-                  Real-time usage monitoring
-                </li>
-                <li className="flex items-center gap-2 text-sm text-slate-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1E88FF]" />
-                  Support ticket management
-                </li>
-                <li className="flex items-center gap-2 text-sm text-slate-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1E88FF]" />
-                  Service request submission
-                </li>
-              </ul>
-
-              <button
-                onClick={() => handlePortalAccess('subscriber')}
-                data-testid="subscriber-login-button"
-                className="w-full btn-shine inline-flex items-center justify-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] text-white font-semibold px-6 py-4 rounded-full transition-colors group-hover:scale-105 transform duration-300"
-              >
-                Login to Subscriber Portal
-                <ExternalLink size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Admin Portal Card */}
+          {/* Admin Dashboard Card - LEFT SIDE */}
           <div 
             className="group relative bg-gradient-to-br from-[#0A1A33] to-[#0F2847] text-white border-2 border-[#1E88FF] rounded-3xl p-10 hover:shadow-2xl hover:shadow-[#1E88FF]/30 transition-all duration-300"
-            data-testid="admin-portal-card"
+            data-testid="admin-dashboard-card"
           >
             <div className="absolute -top-4 -right-4 w-24 h-24 bg-[#1E88FF]/20 rounded-full blur-2xl group-hover:bg-[#1E88FF]/30 transition-all" />
             
@@ -129,7 +75,7 @@ export default function CustomerPortal() {
               </div>
               
               <h3 className="font-display text-2xl font-bold mb-3">
-                Admin Portal
+                Admin Dashboard
               </h3>
               
               <p className="text-slate-300 leading-relaxed mb-6">
@@ -155,18 +101,68 @@ export default function CustomerPortal() {
                 </li>
               </ul>
 
-              <button
-                onClick={() => handlePortalAccess('admin')}
+              <Link
+                to="/admin-login"
                 data-testid="admin-login-button"
                 className="w-full btn-shine inline-flex items-center justify-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] text-white font-semibold px-6 py-4 rounded-full transition-colors group-hover:scale-105 transform duration-300"
               >
-                Login to Admin Portal
-                <ExternalLink size={18} />
-              </button>
+                Login to Admin Dashboard
+                <ArrowRight size={18} />
+              </Link>
 
               <p className="mt-4 text-xs text-slate-400 text-center">
                 Admin access requires authorized credentials
               </p>
+            </div>
+          </div>
+
+          {/* Subscriber Dashboard Card - RIGHT SIDE */}
+          <div 
+            className="group relative bg-white border-2 border-slate-200 rounded-3xl p-10 hover:border-[#1E88FF] hover:shadow-2xl hover:shadow-[#1E88FF]/20 transition-all duration-300"
+            data-testid="subscriber-dashboard-card"
+          >
+            <div className="absolute -top-4 -right-4 w-24 h-24 bg-[#1E88FF]/10 rounded-full blur-2xl group-hover:bg-[#1E88FF]/20 transition-all" />
+            
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-[#1E88FF]/10 flex items-center justify-center group-hover:bg-[#1E88FF] transition-colors mb-6">
+                <Users size={32} className="text-[#1E88FF] group-hover:text-white transition-colors" />
+              </div>
+              
+              <h3 className="font-display text-2xl font-bold text-[#0A1A33] mb-3">
+                Subscriber Dashboard
+              </h3>
+              
+              <p className="text-slate-600 leading-relaxed mb-6">
+                Access your account dashboard, view bills, monitor data usage, manage support tickets, and update your profile.
+              </p>
+
+              <ul className="space-y-2 mb-8">
+                <li className="flex items-center gap-2 text-sm text-slate-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1E88FF]" />
+                  Bill payment & invoice download
+                </li>
+                <li className="flex items-center gap-2 text-sm text-slate-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1E88FF]" />
+                  Real-time usage monitoring
+                </li>
+                <li className="flex items-center gap-2 text-sm text-slate-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1E88FF]" />
+                  Support ticket management
+                </li>
+                <li className="flex items-center gap-2 text-sm text-slate-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1E88FF]" />
+                  Service request submission
+                </li>
+              </ul>
+
+              <Link
+                to="/subscriber-login"
+                data-testid="subscriber-login-button"
+                className="w-full btn-shine inline-flex items-center justify-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] text-white font-semibold px-6 py-4 rounded-full transition-colors group-hover:scale-105 transform duration-300"
+              >
+                Login to Subscriber Dashboard
+                <ArrowRight size={18} />
+              </Link>
             </div>
           </div>
         </div>
@@ -175,8 +171,8 @@ export default function CustomerPortal() {
         <div className="mt-12 max-w-2xl mx-auto text-center">
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
             <p className="text-sm text-slate-600">
-              <strong className="text-[#0A1A33]">Secure Portal:</strong> Your connection to the portal is encrypted and secure. 
-              All portal functions are powered by XceedNet, maintaining your existing credentials and account data.
+              <strong className="text-[#0A1A33]">Secure Portal:</strong> Your connection to the dashboard is encrypted and secure. 
+              All portal functions are powered by Insight Networks, maintaining your existing credentials and account data.
             </p>
           </div>
         </div>
