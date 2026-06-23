@@ -9,6 +9,9 @@ import Contact from "@/pages/Contact";
 import Dashboard from "@/pages/Dashboard";
 import SubscriberLogin from "@/pages/SubscriberLogin";
 import AdminLogin from "@/pages/AdminLogin";
+import SubscriberDashboard from "@/pages/SubscriberDashboard";
+import AdminDashboard from "@/pages/AdminDashboard";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 function App() {
   return (
@@ -25,6 +28,22 @@ function App() {
             <Route path="/customer-portal" element={<Dashboard />} />
             <Route path="/subscriber-login" element={<SubscriberLogin />} />
             <Route path="/admin-login" element={<AdminLogin />} />
+            <Route 
+              path="/subscriber-dashboard" 
+              element={
+                <ProtectedRoute requiredType="subscriber">
+                  <SubscriberDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin-dashboard" 
+              element={
+                <ProtectedRoute requiredType="admin">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="*" element={<Home />} />
           </Route>
         </Routes>
