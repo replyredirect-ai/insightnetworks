@@ -34,11 +34,11 @@ export default function Home() {
               </p>
               <div className="mt-9 flex flex-wrap items-center gap-4">
                 <Link
-                  to="/contact"
+                  to="/dashboard"
                   data-testid="hero-primary-cta"
                   className="btn-shine inline-flex items-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] text-white text-base font-semibold px-7 py-4 rounded-full transition-colors"
                 >
-                  Get Connected Today
+                  Access Dashboard
                   <ArrowUpRight size={18} />
                 </Link>
                 <Link

@@ -4,7 +4,7 @@ import { User, Lock, ArrowLeft, Shield } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import xceednetApi from "../services/xceednetApi";
 
-const LOGIN_BG = "https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwzfHxkYXNoYm9hcmQlMjBhbmFseXRpY3N8ZW58MHx8fHwxNzgyMjI3NDE5fDA&ixlib=rb-4.1.0&q=85";
+const LOGIN_BG = "https://images.unsplash.com/photo-1606857521015-7f9fcf423740?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBkYXNoYm9hcmQlMjB0ZWNobm9sb2d5fGVufDB8fHx8MTc4MjIyNzQxOXww&ixlib=rb-4.1.0&q=85";
 
 export default function SubscriberLogin() {
   const navigate = useNavigate();
