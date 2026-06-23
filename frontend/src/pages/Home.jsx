@@ -137,6 +137,133 @@ export default function Home() {
         </div>
       </section>
 
+      {/* INDUSTRY SOLUTIONS */}
+      <section className="bg-gradient-to-br from-[#0A1A33] via-[#0F2847] to-[#0A1A33] text-white py-20 lg:py-28">
+        <div className="container mx-auto px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="text-[#1E88FF] text-xs font-semibold tracking-[0.25em] uppercase">Industry Solutions</span>
+            <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight">
+              Powering India's leading enterprises
+            </h2>
+            <p className="mt-4 text-slate-300 text-lg">
+              Trusted by organizations across industries for mission-critical connectivity
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+            {[
+              { name: "Education", icon: "🎓" },
+              { name: "Hospitals", icon: "🏥" },
+              { name: "Manufacturing", icon: "🏭" },
+              { name: "Retail Chains", icon: "🏬" },
+              { name: "Government", icon: "🏛️" },
+              { name: "Banking", icon: "🏦" },
+              { name: "IT Companies", icon: "💼" }
+            ].map((industry) => (
+              <div
+                key={industry.name}
+                className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 text-center hover:bg-white/10 hover:border-[#1E88FF]/50 transition-all group"
+              >
+                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">{industry.icon}</div>
+                <h3 className="font-semibold text-sm text-white">{industry.name}</h3>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* TECHNOLOGY PARTNERS */}
+      <section className="container mx-auto px-6 lg:px-8 py-20 lg:py-28">
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <span className="text-[#1E88FF] text-xs font-semibold tracking-[0.25em] uppercase">Technology Partners</span>
+          <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0A1A33] leading-tight">
+            Enterprise-grade equipment
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+          {[
+            { name: "MikroTik", badge: "Certified" },
+            { name: "Cisco", badge: "Partner" },
+            { name: "Juniper", badge: "Networks" },
+            { name: "Ubiquiti", badge: "Elite" },
+            { name: "GPON", badge: "Technology" },
+            { name: "IPv6", badge: "Ready" }
+          ].map((tech) => (
+            <div
+              key={tech.name}
+              className="bg-white border-2 border-slate-200 rounded-xl p-6 text-center hover:border-[#1E88FF] hover:shadow-lg transition-all group"
+            >
+              <div className="font-display text-2xl font-bold text-[#0A1A33] mb-2 group-hover:text-[#1E88FF] transition-colors">
+                {tech.name}
+              </div>
+              <div className="text-xs text-slate-600 font-semibold tracking-wider uppercase">{tech.badge}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* INFRASTRUCTURE SHOWCASE */}
+      <section className="bg-[#F4F7FB] py-20 lg:py-28">
+        <div className="container mx-auto px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <span className="text-[#1E88FF] text-xs font-semibold tracking-[0.25em] uppercase">Infrastructure</span>
+            <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0A1A33] leading-tight">
+              Built on world-class infrastructure
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { 
+                title: "Fiber Deployment", 
+                desc: "Enterprise-grade fiber optic installation",
+                img: "https://images.unsplash.com/photo-1683322499436-f4383dd59f5a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNTl8MHwxfHNlYXJjaHw0fHxmaWJlciUyMG9wdGljJTIwY2FibGVzfGVufDB8fHx8MTc4MjI0MDMxNHww&ixlib=rb-4.1.0&q=85"
+              },
+              { 
+                title: "Data Center Racks", 
+                desc: "State-of-the-art server infrastructure",
+                img: "https://images.pexels.com/photos/17489160/pexels-photo-17489160.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+              },
+              { 
+                title: "Network Operations", 
+                desc: "24/7 monitoring and support",
+                img: "https://images.pexels.com/photos/32529341/pexels-photo-32529341.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+              },
+              { 
+                title: "Network Equipment", 
+                desc: "Enterprise routing and switching",
+                img: "https://images.pexels.com/photos/2881232/pexels-photo-2881232.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+              },
+              { 
+                title: "Field Engineering", 
+                desc: "Expert technical team",
+                img: "https://images.pexels.com/photos/442151/pexels-photo-442151.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+              },
+              { 
+                title: "Our Facility", 
+                desc: "Insight Networks Bhopal office",
+                img: "https://customer-assets.emergentagent.com/job_repo-editor-12/artifacts/ho8dvx1m_ChatGPT%20Image%20Jun%2020%2C%202026%2C%2012_29_41%20PM.png"
+              }
+            ].map((item) => (
+              <div key={item.title} className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all">
+                <div className="aspect-[4/3] overflow-hidden">
+                  <img 
+                    src={item.img} 
+                    alt={item.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0A1A33]/90 via-[#0A1A33]/50 to-transparent flex flex-col justify-end p-6">
+                  <h3 className="font-display text-xl font-bold text-white">{item.title}</h3>
+                  <p className="text-slate-300 text-sm mt-1">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* PLANS PREVIEW */}
       <section className="bg-[#F4F7FB] py-20 lg:py-28">
         <div className="container mx-auto px-6 lg:px-8">

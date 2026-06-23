@@ -3,7 +3,7 @@ import { ArrowRight, CreditCard, Activity, Headphones, User, FileText, Shield, U
 import PageHeader from "../components/PageHeader";
 import CtaBanner from "../components/CtaBanner";
 
-const PORTAL_BG = "https://images.pexels.com/photos/1181210/pexels-photo-1181210.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
+const PORTAL_BG = "https://customer-assets.emergentagent.com/job_repo-editor-12/artifacts/ho8dvx1m_ChatGPT%20Image%20Jun%2020%2C%202026%2C%2012_29_41%20PM.png";
 
 const PORTAL_FEATURES = [
   {
