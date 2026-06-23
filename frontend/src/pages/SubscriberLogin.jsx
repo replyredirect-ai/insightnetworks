@@ -1,56 +1,53 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { User, Lock, ArrowLeft, Shield } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import xceednetApi from "../services/xceednetApi";
 
-const LOGIN_BG = "https://images.unsplash.com/photo-1551434678-e076c223a692?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxkYXNoYm9hcmQlMjB0ZWNofGVufDB8fHx8MTc4MDY0MjExMnww&ixlib=rb-4.1.0&q=85";
+const LOGIN_BG = "https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwzfHxkYXNoYm9hcmQlMjBhbmFseXRpY3N8ZW58MHx8fHwxNzgyMjI3NDE5fDA&ixlib=rb-4.1.0&q=85";
 
 export default function SubscriberLogin() {
+  const navigate = useNavigate();
   const [credentials, setCredentials] = useState({
     username: "",
     password: "",
     remember: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     setIsSubmitting(true);
 
-    // Create form data to submit to XceedNet portal
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'https://bhopal.insightnet.in/subscriber/sessions/new';
-    form.target = '_blank';
+    try {
+      // Authenticate with XceedNet API
+      const response = await xceednetApi.subscriberLogin(
+        credentials.username,
+        credentials.password
+      );
 
-    // Add username field
-    const usernameInput = document.createElement('input');
-    usernameInput.type = 'hidden';
-    usernameInput.name = 'username';
-    usernameInput.value = credentials.username;
-    form.appendChild(usernameInput);
+      if (response.success) {
+        // Store authentication token
+        xceednetApi.setToken(response.token, 'subscriber');
+        
+        // Store subscriber ID if provided
+        if (response.subscriber_id) {
+          localStorage.setItem('subscriber_id', response.subscriber_id);
+        }
 
-    // Add password field
-    const passwordInput = document.createElement('input');
-    passwordInput.type = 'hidden';
-    passwordInput.name = 'password';
-    passwordInput.value = credentials.password;
-    form.appendChild(passwordInput);
-
-    // Add remember me if checked
-    if (credentials.remember) {
-      const rememberInput = document.createElement('input');
-      rememberInput.type = 'hidden';
-      rememberInput.name = 'remember';
-      rememberInput.value = '1';
-      form.appendChild(rememberInput);
+        // Redirect to subscriber dashboard
+        navigate('/subscriber-dashboard');
+      } else {
+        setError(response.message || 'Login failed. Please check your credentials.');
+      }
+    } catch (err) {
+      setError('Login failed. Please check your credentials and try again.');
+      console.error('Login error:', err);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-
-    setTimeout(() => setIsSubmitting(false), 1000);
   };
 
   const handleChange = (e) => {
@@ -93,6 +90,12 @@ export default function SubscriberLogin() {
                 Enter your credentials to access your dashboard
               </p>
             </div>
+
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} data-testid="subscriber-login-form">
               <div className="space-y-5">

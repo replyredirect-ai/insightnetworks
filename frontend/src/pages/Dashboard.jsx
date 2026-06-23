@@ -3,7 +3,7 @@ import { ArrowRight, CreditCard, Activity, Headphones, User, FileText, Shield, U
 import PageHeader from "../components/PageHeader";
 import CtaBanner from "../components/CtaBanner";
 
-const PORTAL_BG = "https://images.unsplash.com/photo-1551434678-e076c223a692?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxkYXNoYm9hcmQlMjB0ZWNofGVufDB8fHx8MTc4MDY0MjExMnww&ixlib=rb-4.1.0&q=85";
+const PORTAL_BG = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwxfHxkYXNoYm9hcmQlMjBhbmFseXRpY3N8ZW58MHx8fHwxNzgyMjI3NDE5fDA&ixlib=rb-4.1.0&q=85";
 
 const PORTAL_FEATURES = [
   {
