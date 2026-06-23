@@ -12,6 +12,10 @@ import AdminLogin from "@/pages/AdminLogin";
 import SubscriberDashboard from "@/pages/SubscriberDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import TechnologyPartners from "@/pages/TechnologyPartners";
+import Industries from "@/pages/Industries";
+import LeasedLine from "@/pages/services/LeasedLine";
+import WISP from "@/pages/services/WISP";
 
 function App() {
   return (
@@ -21,9 +25,13 @@ function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
             <Route path="/services" element={<Services />} />
+            <Route path="/services/leased-line" element={<LeasedLine />} />
+            <Route path="/services/wisp" element={<WISP />} />
             <Route path="/plans" element={<Plans />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/technology-partners" element={<TechnologyPartners />} />
+            <Route path="/industries" element={<Industries />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/customer-portal" element={<Dashboard />} />
             <Route path="/subscriber-login" element={<SubscriberLogin />} />
