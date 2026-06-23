@@ -170,6 +170,7 @@ export default function Industries() {
       {industries.map((industry, index) => (
         <section
           key={industry.name}
+          id={industry.name.toLowerCase().replace(/\s+/g, "-").replace(/&/g, "")}
           className={`py-20 ${index % 2 === 0 ? 'bg-white' : 'bg-[#F4F7FB]'}`}
         >
           <div className="container mx-auto px-6 lg:px-8">

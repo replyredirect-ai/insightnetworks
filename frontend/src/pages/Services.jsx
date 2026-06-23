@@ -110,6 +110,52 @@ export default function Services() {
         </DialogContent>
       </Dialog>
 
+      {/* INDUSTRY SOLUTIONS */}
+      <section className="bg-gradient-to-br from-[#0A1A33] via-[#0F2847] to-[#0A1A33] text-white py-20 lg:py-28">
+        <div className="container mx-auto px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="text-[#1E88FF] text-xs font-semibold tracking-[0.25em] uppercase">Industry Solutions</span>
+            <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight">
+              Tailored connectivity for every industry
+            </h2>
+            <p className="mt-4 text-slate-300 text-lg">
+              Specialized networking solutions designed for your industry's unique requirements
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-12">
+            {[
+              { name: "Education", icon: "🎓", id: "education" },
+              { name: "Healthcare", icon: "🏥", id: "healthcare-hospitals" },
+              { name: "Manufacturing", icon: "🏭", id: "manufacturing" },
+              { name: "Retail", icon: "🏬", id: "retail-chains" },
+              { name: "Government", icon: "🏛️", id: "government" },
+              { name: "Banking", icon: "🏦", id: "banking-finance" },
+              { name: "IT Companies", icon: "💼", id: "it-companies-tech-parks" }
+            ].map((industry) => (
+              <a
+                key={industry.name}
+                href={`/industries#${industry.id}`}
+                className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 text-center hover:bg-white/10 hover:border-[#1E88FF]/50 transition-all group block"
+              >
+                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">{industry.icon}</div>
+                <h3 className="font-semibold text-sm text-white">{industry.name}</h3>
+              </a>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <a
+              href="/industries"
+              className="inline-flex items-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] text-white font-semibold px-8 py-4 rounded-full transition-colors"
+            >
+              View All Industry Solutions
+              <ArrowRight size={18} />
+            </a>
+          </div>
+        </div>
+      </section>
+
       <CtaBanner />
     </div>
   );

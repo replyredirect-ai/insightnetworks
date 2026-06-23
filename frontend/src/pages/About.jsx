@@ -95,6 +95,55 @@ export default function About() {
         </div>
       </section>
 
+      {/* TECHNOLOGY PARTNERS */}
+      <section className="container mx-auto px-6 lg:px-8 py-20 lg:py-28">
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <span className="text-[#1E88FF] text-xs font-semibold tracking-[0.25em] uppercase">Technology Partners</span>
+          <h2 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0A1A33] leading-tight">
+            Powered by industry leaders
+          </h2>
+          <p className="mt-4 text-slate-600">
+            We partner with the world's leading technology providers to deliver enterprise-grade solutions
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 max-w-6xl mx-auto">
+          {[
+            { name: "MikroTik", badge: "Certified", color: "bg-gradient-to-br from-red-600 to-red-700" },
+            { name: "Cisco", badge: "Partner", color: "bg-gradient-to-br from-blue-600 to-blue-700" },
+            { name: "Juniper", badge: "Networks", color: "bg-gradient-to-br from-green-600 to-emerald-700" },
+            { name: "Ubiquiti", badge: "Elite", color: "bg-gradient-to-br from-slate-700 to-slate-800" },
+            { name: "GPON", badge: "Technology", color: "bg-gradient-to-br from-amber-500 to-orange-600" },
+            { name: "IPv6", badge: "Ready", color: "bg-gradient-to-br from-purple-600 to-purple-700" }
+          ].map((tech) => (
+            <div
+              key={tech.name}
+              className={`${tech.color} text-white rounded-2xl p-6 text-center hover:scale-105 hover:shadow-2xl transition-all group relative overflow-hidden`}
+            >
+              <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all" />
+              <div className="relative">
+                <div className="font-display text-2xl font-bold mb-2">
+                  {tech.name}
+                </div>
+                <div className="text-xs font-semibold tracking-wider uppercase opacity-90">
+                  {tech.badge}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-center mt-12">
+          <a
+            href="/technology-partners"
+            className="inline-flex items-center gap-2 text-[#1E88FF] hover:text-[#156cd1] font-semibold transition-colors"
+          >
+            View All Technology Partners
+            <span className="text-xl">→</span>
+          </a>
+        </div>
+      </section>
+
       <CtaBanner />
     </div>
   );
