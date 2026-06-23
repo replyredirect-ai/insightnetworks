@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Check, ArrowRight, Zap, Shield, Clock, TrendingUp } from "lucide-react";
-import PageHeader from "../components/PageHeader";
-import CtaBanner from "../components/CtaBanner";
+import PageHeader from "../../components/PageHeader";
+import CtaBanner from "../../components/CtaBanner";
 
 const SERVICE_BG = "https://images.unsplash.com/photo-1604869515882-4d10fa4b0492?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwxfHxmaWJlciUyMG9wdGljc3xlbnwwfHx8fDE3ODA2NDIxMTJ8MA&ixlib=rb-4.1.0&q=85";
 

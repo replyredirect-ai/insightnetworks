@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Check, ArrowRight, Wifi, Zap, MapPin, Users } from "lucide-react";
-import PageHeader from "../components/PageHeader";
-import CtaBanner from "../components/CtaBanner";
+import PageHeader from "../../components/PageHeader";
+import CtaBanner from "../../components/CtaBanner";
 
 const SERVICE_BG = "https://images.unsplash.com/photo-1551434678-e076c223a692?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxkYXNoYm9hcmQlMjB0ZWNofGVufDB8fHx8MTc4MDY0MjExMnww&ixlib=rb-4.1.0&q=85";
 
