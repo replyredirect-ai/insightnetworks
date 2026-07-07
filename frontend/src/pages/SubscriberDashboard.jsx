@@ -9,60 +9,46 @@ import xceednetApi from "../services/xceednetApi";
 
 const DASHBOARD_BG = "https://images.unsplash.com/photo-1606857521015-7f9fcf423740?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBkYXNoYm9hcmQlMjB0ZWNobm9sb2d5fGVufDB8fHx8MTc4MjIyNzQxOXww&ixlib=rb-4.1.0&q=85";
 
-// Mock data matching XceedNet API structure
-const mockSubscriberData = {
-  id: 1,
-  name: "Demo User",
-  username: "demo_user",
-  email: "demo@insightnet.in",
-  mobile1: "9876543210",
-  address1: "Block-B Aashima Royal City",
-  city: "Bhopal",
-  state: "Madhya Pradesh",
-  zip: "462043",
-  status: "package_assigned",
-  is_online: true,
-  location_package_name: "Premium 100 Mbps",
-  location_package_display_valid_for: "30 Days",
-  location_package_display_data: "Unlimited",
-  renewed_at: "2026-01-05T10:30:00.000+05:30",
-  expires_at: "2026-02-05T10:30:00.000+05:30",
-  balance_amount_human: "₹0",
-  balance_amount_cents: 0,
-  bytes_uploaded_total_human: "45.2 GB",
-  bytes_downloaded_total_human: "128.5 GB",
-  data_used_total_human: "173.7 GB",
-  data_used_today_human: "2.3 GB",
-  data_used_monthly_human: "173.7 GB",
-  package_time_used_today: "8.5 Hours",
-  subscriber_ip_addresses: ["192.168.1.100"],
-  last_login_at: "2026-01-05T14:23:00.000+05:30"
-};
-
-const mockPackages = [
-  { id: 1, name: "Basic 50 Mbps", price: "₹599", speed: "50 Mbps", validity: "30 Days" },
-  { id: 2, name: "Premium 100 Mbps", price: "₹999", speed: "100 Mbps", validity: "30 Days" },
-  { id: 3, name: "Ultra 200 Mbps", price: "₹1499", speed: "200 Mbps", validity: "30 Days" },
-];
-
 export default function SubscriberDashboard() {
   const navigate = useNavigate();
-  const [subscriberData, setSubscriberData] = useState(mockSubscriberData);
-  const [loading, setLoading] = useState(false);
+  const [subscriberData, setSubscriberData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // In real implementation, fetch subscriber data from API
-    // const fetchData = async () => {
-    //   try {
-    //     const subscriberId = localStorage.getItem('subscriber_id');
-    //     const data = await xceednetApi.getSubscriber(subscriberId);
-    //     setSubscriberData(data.data);
-    //   } catch (error) {
-    //     console.error('Error fetching subscriber data:', error);
-    //   }
-    // };
-    // fetchData();
-  }, []);
+    // Check if user is authenticated
+    if (!xceednetApi.isAuthenticated() || xceednetApi.getUserType() !== 'subscriber') {
+      navigate('/subscriber-login');
+      return;
+    }
+
+    // Fetch subscriber data from XceedNet API via proxy
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const subscriberId = localStorage.getItem('subscriber_id');
+        const response = await xceednetApi.getSubscriberData(subscriberId);
+        
+        // XceedNet returns data in response.data or response.subscriber
+        const data = response.data || response.subscriber || response;
+        setSubscriberData(data);
+        setError(null);
+      } catch (error) {
+        console.error('Error fetching subscriber data:', error);
+        setError('Failed to load subscriber data. Please try again.');
+        
+        // If unauthorized, redirect to login
+        if (error.message?.includes('401') || error.message?.includes('Authentication')) {
+          xceednetApi.clearAuth();
+          navigate('/subscriber-login');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [navigate]);
 
   const handleLogout = () => {
     xceednetApi.clearAuth();
@@ -70,18 +56,67 @@ export default function SubscriberDashboard() {
   };
 
   const daysRemaining = () => {
+    if (!subscriberData || !subscriberData.expires_at) return 0;
     const expiry = new Date(subscriberData.expires_at);
     const today = new Date();
     const diff = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
     return diff > 0 ? diff : 0;
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div data-testid="subscriber-dashboard-page">
+        <PageHeader
+          eyebrow="Subscriber Dashboard"
+          title="Loading your"
+          accent="dashboard..."
+          subtitle="Please wait while we fetch your account information."
+          backgroundImage={DASHBOARD_BG}
+        />
+        <section className="container mx-auto px-6 lg:px-8 py-20">
+          <div className="flex items-center justify-center">
+            <RefreshCw size={48} className="text-[#1E88FF] animate-spin" />
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error || !subscriberData) {
+    return (
+      <div data-testid="subscriber-dashboard-page">
+        <PageHeader
+          eyebrow="Subscriber Dashboard"
+          title="Error loading"
+          accent="dashboard"
+          subtitle={error || "Unable to load subscriber data"}
+          backgroundImage={DASHBOARD_BG}
+        />
+        <section className="container mx-auto px-6 lg:px-8 py-20">
+          <div className="max-w-md mx-auto text-center">
+            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-8">
+              <p className="text-red-700 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="btn-shine bg-[#1E88FF] hover:bg-[#156cd1] text-white px-6 py-3 rounded-full"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div data-testid="subscriber-dashboard-page">
       <PageHeader
         eyebrow="Subscriber Dashboard"
         title="Welcome back,"
-        accent={subscriberData.name}
+        accent={subscriberData.name || 'User'}
         subtitle="Manage your account, monitor usage, and view billing information."
         backgroundImage={DASHBOARD_BG}
       />
@@ -91,11 +126,14 @@ export default function SubscriberDashboard() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-bold text-[#0A1A33]">Account Overview</h2>
-            <p className="text-slate-600 mt-1">Last login: {new Date(subscriberData.last_login_at).toLocaleString()}</p>
+            <p className="text-slate-600 mt-1">
+              Last login: {subscriberData.last_login_at ? new Date(subscriberData.last_login_at).toLocaleString() : 'N/A'}
+            </p>
           </div>
           <button
             onClick={handleLogout}
             className="inline-flex items-center gap-2 px-4 py-2 border-2 border-slate-300 text-slate-700 hover:border-red-500 hover:text-red-500 rounded-lg transition-colors"
+          >
           >
             <LogOut size={18} />
             Logout

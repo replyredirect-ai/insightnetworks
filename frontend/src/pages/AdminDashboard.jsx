@@ -9,57 +9,53 @@ import xceednetApi from "../services/xceednetApi";
 
 const DASHBOARD_BG = "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHwyfHxkYXRhJTIwY2VudGVyJTIwdGVjaG5vbG9neXxlbnwwfHx8fDE3ODIyMjc0MTl8MA&ixlib=rb-4.1.0&q=85";
 
-// Mock dashboard data matching XceedNet API
-const mockDashboardData = {
-  all_subscribers_count: 1247,
-  online_subscribers_count: 892,
-  active_subscribers_count: 1180,
-  disabled_subscribers_count: 45,
-  expired_subscribers_count: 22,
-  expiring_today_subscribers_count: 8,
-  registered_today: 12,
-  registered_this_month: 156,
-  packages_sold_today: 15,
-  packages_sold_this_month: 298,
-  active_invoices_amount: "₹2,45,000",
-  active_payments_amount: "₹1,87,500",
-  total_balance_amount_due: "₹57,500",
-  all_active_tickets: 23,
-  tickets_overdue: 3,
-};
-
-const mockSubscribers = [
-  { id: 1, name: "Rajesh Kumar", username: "rajesh_123", package: "Premium 100 Mbps", status: "active", balance: "₹0", expiry: "2026-02-15" },
-  { id: 2, name: "Priya Sharma", username: "priya_456", package: "Basic 50 Mbps", status: "active", balance: "₹0", expiry: "2026-02-10" },
-  { id: 3, name: "Amit Patel", username: "amit_789", package: "Ultra 200 Mbps", status: "expired", balance: "₹999", expiry: "2026-01-01" },
-  { id: 4, name: "Sunita Verma", username: "sunita_321", package: "Premium 100 Mbps", status: "active", balance: "₹0", expiry: "2026-02-20" },
-  { id: 5, name: "Rahul Singh", username: "rahul_654", package: "Basic 50 Mbps", status: "disabled", balance: "₹599", expiry: "2026-01-28" },
-];
-
-const mockPackages = [
-  { id: 1, name: "Basic 50 Mbps", subscribers: 420, price: "₹599", bandwidth: "50 Mbps" },
-  { id: 2, name: "Premium 100 Mbps", subscribers: 580, price: "₹999", bandwidth: "100 Mbps" },
-  { id: 3, name: "Ultra 200 Mbps", subscribers: 247, price: "₹1499", bandwidth: "200 Mbps" },
-];
-
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState(mockDashboardData);
-  const [subscribers, setSubscribers] = useState(mockSubscribers);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [subscribers, setSubscribers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // In real implementation, fetch from API
-    // const fetchData = async () => {
-    //   try {
-    //     const data = await xceednetApi.getLocationDashboard();
-    //     setDashboardData(data);
-    //   } catch (error) {
-    //     console.error('Error fetching dashboard data:', error);
-    //   }
-    // };
-    // fetchData();
-  }, []);
+    // Check if user is authenticated as admin
+    if (!xceednetApi.isAuthenticated() || xceednetApi.getUserType() !== 'admin') {
+      navigate('/admin-login');
+      return;
+    }
+
+    // Fetch dashboard data from XceedNet API via proxy
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch dashboard stats
+        const statsResponse = await xceednetApi.getDashboardStats();
+        const stats = statsResponse.data || statsResponse;
+        setDashboardData(stats);
+        
+        // Fetch subscribers list
+        const subscribersResponse = await xceednetApi.getSubscribersList(1, 50);
+        const subscribersList = subscribersResponse.data || subscribersResponse.subscribers || [];
+        setSubscribers(subscribersList);
+        
+        setError(null);
+      } catch (error) {
+        console.error('Error fetching admin dashboard data:', error);
+        setError('Failed to load dashboard data. Please try again.');
+        
+        // If unauthorized, redirect to login
+        if (error.message?.includes('401') || error.message?.includes('Authentication')) {
+          xceednetApi.clearAuth();
+          navigate('/admin-login');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [navigate]);
 
   const handleLogout = () => {
     xceednetApi.clearAuth();
@@ -76,9 +72,57 @@ export default function AdminDashboard() {
   };
 
   const filteredSubscribers = subscribers.filter(sub =>
-    sub.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sub.username.toLowerCase().includes(searchTerm.toLowerCase())
+    sub.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sub.username?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div data-testid="admin-dashboard-page">
+        <PageHeader
+          eyebrow="Admin Dashboard"
+          title="Loading"
+          accent="Console"
+          subtitle="Please wait while we fetch dashboard data."
+          backgroundImage={DASHBOARD_BG}
+        />
+        <section className="container mx-auto px-6 lg:px-8 py-20">
+          <div className="flex items-center justify-center">
+            <RefreshCw size={48} className="text-[#1E88FF] animate-spin" />
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div data-testid="admin-dashboard-page">
+        <PageHeader
+          eyebrow="Admin Dashboard"
+          title="Error loading"
+          accent="dashboard"
+          subtitle={error}
+          backgroundImage={DASHBOARD_BG}
+        />
+        <section className="container mx-auto px-6 lg:px-8 py-20">
+          <div className="max-w-md mx-auto text-center">
+            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-8">
+              <p className="text-red-700 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="btn-shine bg-[#1E88FF] hover:bg-[#156cd1] text-white px-6 py-3 rounded-full"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div data-testid="admin-dashboard-page">
@@ -114,7 +158,7 @@ export default function AdminDashboard() {
               <Users size={32} />
               <span className="text-blue-100 text-sm font-semibold">Total</span>
             </div>
-            <p className="text-4xl font-bold mb-1">{dashboardData.all_subscribers_count}</p>
+            <p className="text-4xl font-bold mb-1">{dashboardData?.all_subscribers_count || 0}</p>
             <p className="text-blue-100 text-sm">Subscribers</p>
           </div>
 
@@ -124,7 +168,7 @@ export default function AdminDashboard() {
               <Wifi size={32} />
               <span className="text-green-100 text-sm font-semibold">Live</span>
             </div>
-            <p className="text-4xl font-bold mb-1">{dashboardData.online_subscribers_count}</p>
+            <p className="text-4xl font-bold mb-1">{dashboardData?.online_subscribers_count || 0}</p>
             <p className="text-green-100 text-sm">Online Now</p>
           </div>
 
@@ -134,7 +178,7 @@ export default function AdminDashboard() {
               <DollarSign size={32} />
               <span className="text-purple-100 text-sm font-semibold">This Month</span>
             </div>
-            <p className="text-4xl font-bold mb-1">{dashboardData.active_invoices_amount}</p>
+            <p className="text-4xl font-bold mb-1">{dashboardData?.active_invoices_amount || '₹0'}</p>
             <p className="text-purple-100 text-sm">Total Invoices</p>
           </div>
 
@@ -144,7 +188,7 @@ export default function AdminDashboard() {
               <AlertCircle size={32} />
               <span className="text-orange-100 text-sm font-semibold">Active</span>
             </div>
-            <p className="text-4xl font-bold mb-1">{dashboardData.all_active_tickets}</p>
+            <p className="text-4xl font-bold mb-1">{dashboardData?.all_active_tickets || 0}</p>
             <p className="text-orange-100 text-sm">Support Tickets</p>
           </div>
         </div>
@@ -153,19 +197,19 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white border-2 border-slate-200 rounded-xl p-4">
             <p className="text-sm text-slate-600 mb-1">Registered Today</p>
-            <p className="text-2xl font-bold text-[#0A1A33]">{dashboardData.registered_today}</p>
+            <p className="text-2xl font-bold text-[#0A1A33]">{dashboardData?.registered_today || 0}</p>
           </div>
           <div className="bg-white border-2 border-slate-200 rounded-xl p-4">
             <p className="text-sm text-slate-600 mb-1">Expiring Today</p>
-            <p className="text-2xl font-bold text-orange-600">{dashboardData.expiring_today_subscribers_count}</p>
+            <p className="text-2xl font-bold text-orange-600">{dashboardData?.expiring_today_subscribers_count || 0}</p>
           </div>
           <div className="bg-white border-2 border-slate-200 rounded-xl p-4">
             <p className="text-sm text-slate-600 mb-1">Packages Sold</p>
-            <p className="text-2xl font-bold text-green-600">{dashboardData.packages_sold_today}</p>
+            <p className="text-2xl font-bold text-green-600">{dashboardData?.packages_sold_today || 0}</p>
           </div>
           <div className="bg-white border-2 border-slate-200 rounded-xl p-4">
             <p className="text-sm text-slate-600 mb-1">Pending Dues</p>
-            <p className="text-2xl font-bold text-red-600">{dashboardData.total_balance_amount_due}</p>
+            <p className="text-2xl font-bold text-red-600">{dashboardData?.total_balance_amount_due || '₹0'}</p>
           </div>
         </div>
 
