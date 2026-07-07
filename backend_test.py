@@ -9,9 +9,8 @@ import sys
 from typing import Dict, Any, Optional
 
 # Load backend URL from frontend/.env
-# NOTE: External URL routing appears to have an issue, testing against localhost:8001
-# BACKEND_URL = "https://repo-editor-12.preview.emergentagent.com"
-BACKEND_URL = "http://localhost:8001"
+# Testing against external URL (routing has been fixed)
+BACKEND_URL = "https://32ac4902-d835-4e50-b97b-45d102ca4b34.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 # Test credentials from /app/memory/test_credentials.md

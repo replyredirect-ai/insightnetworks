@@ -197,6 +197,25 @@ backend:
           - Use X-Location-Domain header for routing
           - Return proper success/error responses
           - Proxy XceedNet data correctly
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ EXTERNAL URL VERIFICATION COMPLETE - ALL AUTHENTICATED ENDPOINTS WORKING
+          
+          Re-tested all authenticated endpoints against the EXTERNAL preview URL:
+          https://32ac4902-d835-4e50-b97b-45d102ca4b34.preview.emergentagent.com
+          
+          All authenticated data proxy endpoints confirmed working:
+          ✓ GET /api/subscriber/dashboard - Returns correct subscriber data (username="poriya.traders", id=3637069)
+          ✓ GET /api/admin/dashboard - Returns correct admin dashboard data (all_subscribers_count=60)
+          ✓ GET /api/subscribers/list?length=5 - Returns paginated subscriber list (5 items)
+          ✓ Authentication header validation - Correctly returns 401 when Authentication header is missing
+          
+          All endpoints correctly:
+          - Require Authentication header (401 without it)
+          - Use X-Location-Domain header for subdomain routing
+          - Return proper JSON responses with success/data structure
+          - Proxy XceedNet API data correctly from bhopal.insightnet.in subdomain
 
 frontend:
   - task: "Subscriber login page → new backend proxy"
@@ -249,7 +268,7 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
@@ -308,3 +327,47 @@ agent_communication:
       
       This routing issue will prevent the frontend from communicating with the backend in production.
       The Kubernetes ingress needs to be configured to route /api/* to the backend service.
+  - agent: "testing"
+    message: |
+      ✅ EXTERNAL URL TESTING COMPLETE - ALL 8 BACKEND TESTS PASSED
+      
+      Successfully verified all backend endpoints against the external preview URL:
+      https://32ac4902-d835-4e50-b97b-45d102ca4b34.preview.emergentagent.com
+      
+      Test Suite Results (8/8 passed):
+      ✓ Admin login (correct credentials) - Working
+      ✓ Admin login (wrong password) - Proper 401 error handling
+      ✓ Subscriber login (correct credentials) - Working
+      ✓ Subscriber login (unknown user) - Proper 401 error handling
+      ✓ Subscriber dashboard (authenticated) - Working
+      ✓ Admin dashboard (authenticated) - Working
+      ✓ Subscribers list (authenticated) - Working
+      ✓ Missing auth header validation - Working
+      
+      ✅ ROUTING ISSUE RESOLVED: The Kubernetes ingress routing has been fixed. All /api/* 
+      endpoints are now correctly routed to the backend service and working on the external URL.
+      
+      Both backend tasks ("XceedNet login proxy" and "XceedNet authenticated data proxies") 
+      are confirmed working on the external URL. Updated status_history for both tasks.
+      
+      Backend is production-ready. Frontend can now successfully communicate with backend APIs.
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ EXTERNAL URL VERIFICATION COMPLETE - ALL 8 TESTS PASSED
+          
+          Re-tested all endpoints against the EXTERNAL preview URL:
+          https://32ac4902-d835-4e50-b97b-45d102ca4b34.preview.emergentagent.com
+          
+          Test Results (all endpoints prefixed with /api):
+          ✓ Test 1: POST /api/admin/login (correct credentials) - HTTP 200, success=true, token received
+          ✓ Test 2: POST /api/admin/login (wrong password) - HTTP 401, success=false, message="Password is not correct"
+          ✓ Test 3: POST /api/subscriber/login (correct credentials) - HTTP 200, success=true, token received, domain="bhopal.insightnet.in"
+          ✓ Test 4: POST /api/subscriber/login (unknown username) - HTTP 401, success=false, message="Couldn't find Subscriber"
+          ✓ Test 5: GET /api/subscriber/dashboard (authenticated) - HTTP 200, success=true, username="poriya.traders", id=3637069
+          ✓ Test 6: GET /api/admin/dashboard (authenticated) - HTTP 200, success=true, all_subscribers_count=60
+          ✓ Test 7: GET /api/subscribers/list?length=5 (authenticated) - HTTP 200, success=true, data.data array with 5 items
+          ✓ Test 8: GET /api/subscriber/dashboard (no auth header) - HTTP 401, detail="Authentication token required"
+          
+          ✅ ROUTING ISSUE RESOLVED: The Kubernetes ingress is now correctly routing /api/* to the backend service.
+          Both login endpoints and all authenticated data proxies are working correctly on the external URL.
