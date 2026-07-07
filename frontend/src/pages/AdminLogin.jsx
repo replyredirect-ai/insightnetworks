@@ -22,24 +22,20 @@ export default function AdminLogin() {
     setIsSubmitting(true);
 
     try {
-      // Authenticate with XceedNet API
       const response = await xceednetApi.adminLogin(
-        credentials.email,
+        credentials.email.trim(),
         credentials.password
       );
 
-      if (response.success) {
-        // Store authentication token
+      if (response.success && response.token) {
         xceednetApi.setToken(response.token, 'admin');
-
-        // Redirect to admin dashboard
         navigate('/admin-dashboard');
       } else {
         setError(response.message || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
-      setError('Login failed. Please check your credentials and try again.');
       console.error('Login error:', err);
+      setError(err.message || 'Login failed. Please check your credentials and try again.');
     } finally {
       setIsSubmitting(false);
     }

@@ -28,27 +28,47 @@ export default function AdminDashboard() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch dashboard stats
         const statsResponse = await xceednetApi.getDashboardStats();
-        const stats = statsResponse.data || statsResponse;
+        const stats = statsResponse?.data || statsResponse;
         setDashboardData(stats);
-        
-        // Fetch subscribers list
-        const subscribersResponse = await xceednetApi.getSubscribersList(1, 50);
-        const subscribersList = subscribersResponse.data || subscribersResponse.subscribers || [];
-        setSubscribers(subscribersList);
-        
+
+        // Fetch subscribers list (XceedNet datatable format)
+        const subscribersResponse = await xceednetApi.getSubscribersList({ start: 0, length: 50 });
+        const raw = subscribersResponse?.data?.data || subscribersResponse?.data || [];
+        // XceedNet returns array-of-arrays; map to objects based on the columns order
+        // Columns: [subscriberid, username, name, account_no, mobile1, zone, node, package, is_online, renewed_at, expires_at, status, id]
+        const mapped = Array.isArray(raw) && raw.length && Array.isArray(raw[0])
+          ? raw.map((row) => ({
+              subscriberid: row[0],
+              username: row[1],
+              name: row[2],
+              account_no: row[3],
+              mobile1: row[4],
+              zone: row[5]?.location_zone_name || null,
+              node: row[6]?.location_node_name || null,
+              location_package_name: row[7]?.location_package_name || null,
+              is_online: !!row[8],
+              renewed_at: row[9],
+              expires_at: row[10],
+              status: row[11],
+              id: row[12],
+            }))
+          : Array.isArray(raw)
+          ? raw
+          : [];
+        setSubscribers(mapped);
+
         setError(null);
       } catch (error) {
         console.error('Error fetching admin dashboard data:', error);
-        setError('Failed to load dashboard data. Please try again.');
-        
-        // If unauthorized, redirect to login
-        if (error.message?.includes('401') || error.message?.includes('Authentication')) {
+        if (error.status === 401) {
           xceednetApi.clearAuth();
           navigate('/admin-login');
+          return;
         }
+        setError(error.message || 'Failed to load dashboard data. Please try again.');
       } finally {
         setLoading(false);
       }

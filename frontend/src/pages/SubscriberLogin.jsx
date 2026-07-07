@@ -11,6 +11,7 @@ export default function SubscriberLogin() {
   const [credentials, setCredentials] = useState({
     username: "",
     password: "",
+    domain: "bhopal.insightnet.in",
     remember: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,29 +23,21 @@ export default function SubscriberLogin() {
     setIsSubmitting(true);
 
     try {
-      // Authenticate with XceedNet API
       const response = await xceednetApi.subscriberLogin(
-        credentials.username,
-        credentials.password
+        credentials.username.trim(),
+        credentials.password,
+        credentials.domain.trim() || undefined
       );
 
-      if (response.success) {
-        // Store authentication token
-        xceednetApi.setToken(response.token, 'subscriber');
-        
-        // Store subscriber ID if provided
-        if (response.subscriber_id) {
-          localStorage.setItem('subscriber_id', response.subscriber_id);
-        }
-
-        // Redirect to subscriber dashboard
+      if (response.success && response.token) {
+        xceednetApi.setToken(response.token, 'subscriber', response.domain || credentials.domain);
         navigate('/subscriber-dashboard');
       } else {
         setError(response.message || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
-      setError('Login failed. Please check your credentials and try again.');
       console.error('Login error:', err);
+      setError(err.message || 'Login failed. Please check your credentials and try again.');
     } finally {
       setIsSubmitting(false);
     }

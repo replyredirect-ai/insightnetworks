@@ -1,21 +1,37 @@
-// XceedNet API Service - Using Backend Proxy
+// XceedNet API Service - Communicates with FastAPI backend proxy which in turn talks to XceedNet.
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+// Default location subdomain for subscribers (can be overridden by login response).
+const DEFAULT_SUBSCRIBER_DOMAIN = 'bhopal.insightnet.in';
 
 class XceedNetAPI {
   constructor() {
     this.token = localStorage.getItem('xceednet_token');
     this.userType = localStorage.getItem('user_type');
+    this.locationDomain = localStorage.getItem('location_domain') || DEFAULT_SUBSCRIBER_DOMAIN;
   }
 
-  // Set authentication token
-  setToken(token, userType) {
+  setToken(token, userType, locationDomain) {
     this.token = token;
     this.userType = userType;
     localStorage.setItem('xceednet_token', token);
     localStorage.setItem('user_type', userType);
+    if (locationDomain) {
+      this.locationDomain = locationDomain;
+      localStorage.setItem('location_domain', locationDomain);
+    }
   }
 
-  // Clear authentication
+  setLocationDomain(domain) {
+    if (!domain) return;
+    this.locationDomain = domain;
+    localStorage.setItem('location_domain', domain);
+  }
+
+  getLocationDomain() {
+    return this.locationDomain || DEFAULT_SUBSCRIBER_DOMAIN;
+  }
+
   clearAuth() {
     this.token = null;
     this.userType = null;
@@ -23,19 +39,17 @@ class XceedNetAPI {
     localStorage.removeItem('user_type');
     localStorage.removeItem('subscriber_id');
     localStorage.removeItem('user_data');
+    localStorage.removeItem('location_domain');
   }
 
-  // Check if authenticated
   isAuthenticated() {
     return !!this.token;
   }
 
-  // Get user type
   getUserType() {
     return this.userType;
   }
 
-  // Make API request to backend proxy
   async request(endpoint, options = {}) {
     const headers = {
       'Content-Type': 'application/json',
@@ -43,210 +57,88 @@ class XceedNetAPI {
       ...options.headers,
     };
 
-    // Add authentication token to headers if available
     if (this.token) {
       headers['Authentication'] = this.token;
     }
+    if (this.locationDomain) {
+      headers['X-Location-Domain'] = this.locationDomain;
+    }
 
+    let response;
     try {
-      const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+      response = await fetch(`${BACKEND_URL}${endpoint}`, {
         ...options,
         headers,
       });
-
-      const data = await response.json();
-
-      // Check for API errors
-      if (!response.ok) {
-        throw new Error(data.message || data.error || data.detail || 'API request failed');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('API Request Error:', error);
-      throw error;
+    } catch (networkErr) {
+      console.error('Network error:', networkErr);
+      throw new Error('Network error. Please check your connection and try again.');
     }
-  }
 
-  // Subscriber Login - via backend proxy
-  async subscriberLogin(username, password) {
+    let data = {};
     try {
-      const response = await this.request('/api/subscriber/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          username,
-          password
-        })
-      });
-      
-      return response;
-    } catch (error) {
-      console.error('Subscriber login error:', error);
-      throw error;
+      data = await response.json();
+    } catch (_e) {
+      // Non-JSON response
     }
+
+    if (!response.ok) {
+      const message = data.message || data.error || data.detail || `Request failed (${response.status})`;
+      const err = new Error(message);
+      err.status = response.status;
+      err.data = data;
+      throw err;
+    }
+
+    return data;
   }
 
-  // Admin Login - via backend proxy
+  // ---------------- Auth ----------------
+
+  async subscriberLogin(username, password, domain) {
+    const body = { username, password };
+    if (domain) body.domain = domain;
+    return this.request('/api/subscriber/login', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
   async adminLogin(email, password) {
-    try {
-      const response = await this.request('/api/admin/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email,
-          password
-        })
-      });
-      
-      return response;
-    } catch (error) {
-      console.error('Admin login error:', error);
-      throw error;
-    }
+    return this.request('/api/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
   }
 
-  // Get Subscriber Data - via backend proxy
-  async getSubscriberData(subscriberId = null) {
-    try {
-      const endpoint = subscriberId 
-        ? `/api/subscriber/data?subscriber_id=${subscriberId}`
-        : '/api/subscriber/data';
-      
-      return await this.request(endpoint, {
-        method: 'GET'
-      });
-    } catch (error) {
-      console.error('Get subscriber data error:', error);
-      throw error;
-    }
+  // ---------------- Subscriber ----------------
+
+  async getSubscriberDashboard() {
+    return this.request('/api/subscriber/dashboard', { method: 'GET' });
   }
 
-  // Get Dashboard Stats (Admin) - via backend proxy
+  // Backwards-compat alias
+  async getSubscriberData() {
+    return this.getSubscriberDashboard();
+  }
+
+  // ---------------- Admin ----------------
+
+  async getAdminLocations() {
+    return this.request('/api/admin/locations', { method: 'GET' });
+  }
+
   async getDashboardStats() {
-    try {
-      return await this.request('/api/dashboard/stats', {
-        method: 'GET'
-      });
-    } catch (error) {
-      console.error('Get dashboard stats error:', error);
-      throw error;
-    }
+    return this.request('/api/admin/dashboard', { method: 'GET' });
   }
 
-  // Get Subscribers List (Admin) - via backend proxy
-  async getSubscribersList(page = 1, perPage = 50) {
-    try {
-      return await this.request(`/api/subscribers/list?page=${page}&per_page=${perPage}`, {
-        method: 'GET'
-      });
-    } catch (error) {
-      console.error('Get subscribers list error:', error);
-      throw error;
-    }
+  async getSubscribersList({ q = '', start = 0, length = 25 } = {}) {
+    const params = new URLSearchParams({ q, start: String(start), length: String(length) });
+    return this.request(`/api/subscribers/list?${params.toString()}`, { method: 'GET' });
   }
 
-  // Get Packages List - via backend proxy
   async getPackagesList() {
-    try {
-      return await this.request('/api/packages/list', {
-        method: 'GET'
-      });
-    } catch (error) {
-      console.error('Get packages list error:', error);
-      throw error;
-    }
-  }
-
-  // Get Packages List - via backend proxy
-  async getPackagesList() {
-    try {
-      return await this.request('/api/packages/list', {
-        method: 'GET'
-      });
-    } catch (error) {
-      console.error('Get packages list error:', error);
-      throw error;
-    }
-  }
-
-  // ===== LEGACY METHODS (Direct XceedNet API calls) =====
-  // These methods call XceedNet directly and may face CORS issues
-  // Use backend proxy methods above for production
-
-  // Dashboard APIs
-  async getLocationDashboard() {
-    return this.getDashboardStats();
-  }
-
-  // Subscriber APIs
-  async getSubscribers(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    return this.getSubscribersList();
-  }
-
-  async getSubscriber(id) {
-    return this.getSubscriberData(id);
-  }
-
-  async updateSubscriber(id, data) {
-    // TODO: Implement via proxy if needed
-    throw new Error('updateSubscriber not yet implemented via proxy');
-  }
-
-  async createSubscriber(data) {
-    // TODO: Implement via proxy if needed
-    throw new Error('createSubscriber not yet implemented via proxy');
-  }
-
-  async deleteSubscriber(id) {
-    // TODO: Implement via proxy if needed
-    throw new Error('deleteSubscriber not yet implemented via proxy');
-  }
-
-  // Package APIs
-  async getPackages() {
-    return this.getPackagesList();
-  }
-
-  async getPackage(id) {
-    // TODO: Implement via proxy if needed
-    throw new Error('getPackage not yet implemented via proxy');
-  }
-
-  async createPackage(data) {
-    // TODO: Implement via proxy if needed
-    throw new Error('createPackage not yet implemented via proxy');
-  }
-
-  async updatePackage(id, data) {
-    // TODO: Implement via proxy if needed
-    throw new Error('updatePackage not yet implemented via proxy');
-  }
-
-  async deletePackage(id) {
-    // TODO: Implement via proxy if needed
-    throw new Error('deletePackage not yet implemented via proxy');
-  }
-
-  // Node APIs
-  async getNodes() {
-    // TODO: Implement via proxy if needed
-    throw new Error('getNodes not yet implemented via proxy');
-  }
-
-  async getNode(id) {
-    // TODO: Implement via proxy if needed
-    throw new Error('getNode not yet implemented via proxy');
-  }
-
-  // Online Subscribers
-  async getOnlineSubscribers(params = {}) {
-    // TODO: Implement via proxy if needed
-    throw new Error('getOnlineSubscribers not yet implemented via proxy');
-  }
-
-  async disconnectOnlineSubscribers(radacctids) {
-    // TODO: Implement via proxy if needed
-    throw new Error('disconnectOnlineSubscribers not yet implemented via proxy');
+    return this.request('/api/packages/list', { method: 'GET' });
   }
 }
 
