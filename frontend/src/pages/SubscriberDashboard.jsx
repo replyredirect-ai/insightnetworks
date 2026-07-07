@@ -112,7 +112,7 @@ export default function SubscriberDashboard() {
   }
 
   const ipAddress = Array.isArray(subscriberData.subscriber_ip_addresses) && subscriberData.subscriber_ip_addresses.length > 0
-    ? subscriberData.subscriber_ip_addresses[0]
+    ? subscriberData.subscriber_ip_addresses[0].fix_ip_address || '—'
     : '—';
   const isOnline = !!subscriberData.is_online;
   const packageName = subscriberData.location_package_name || 'N/A';

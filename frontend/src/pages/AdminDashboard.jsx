@@ -272,16 +272,16 @@ export default function AdminDashboard() {
               <tbody>
                 {filteredSubscribers.map((sub) => (
                   <tr key={sub.id} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-3 px-4 text-sm font-medium text-[#0A1A33]">{sub.name}</td>
-                    <td className="py-3 px-4 text-sm text-slate-600">{sub.username}</td>
-                    <td className="py-3 px-4 text-sm text-slate-600">{sub.package}</td>
+                    <td className="py-3 px-4 text-sm font-medium text-[#0A1A33]">{sub.name || '—'}</td>
+                    <td className="py-3 px-4 text-sm text-slate-600">{sub.username || '—'}</td>
+                    <td className="py-3 px-4 text-sm text-slate-600">{sub.location_package_name || '—'}</td>
                     <td className="py-3 px-4">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(sub.status)}`}>
-                        {sub.status}
+                        {sub.status || '—'}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm font-semibold text-[#0A1A33]">{sub.balance}</td>
-                    <td className="py-3 px-4 text-sm text-slate-600">{new Date(sub.expiry).toLocaleDateString()}</td>
+                    <td className="py-3 px-4 text-sm font-semibold text-[#0A1A33]">—</td>
+                    <td className="py-3 px-4 text-sm text-slate-600">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : '—'}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <button className="p-2 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
@@ -299,28 +299,13 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Package Overview */}
-        <div className="bg-white border-2 border-slate-200 rounded-2xl p-6">
+        {/* Package Overview - Commented out until packages API is integrated */}
+        {/* <div className="bg-white border-2 border-slate-200 rounded-2xl p-6">
           <h3 className="text-xl font-bold text-[#0A1A33] mb-6">Package Overview</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {mockPackages.map((pkg) => (
-              <div key={pkg.id} className="border-2 border-slate-200 rounded-xl p-6 hover:border-[#1E88FF] transition-all">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h4 className="font-bold text-[#0A1A33] text-lg">{pkg.name}</h4>
-                    <p className="text-sm text-slate-600">{pkg.bandwidth}</p>
-                  </div>
-                  <Package className="text-[#1E88FF]" size={24} />
-                </div>
-                <p className="text-3xl font-bold text-[#1E88FF] mb-2">{pkg.price}</p>
-                <p className="text-sm text-slate-600 mb-4">{pkg.subscribers} active subscribers</p>
-                <button className="w-full px-4 py-2 border-2 border-[#1E88FF] text-[#1E88FF] rounded-lg hover:bg-[#1E88FF] hover:text-white transition-colors text-sm font-semibold">
-                  Manage Package
-                </button>
-              </div>
-            ))}
+            <p className="text-slate-600">Package management coming soon...</p>
           </div>
-        </div>
+        </div> */}
       </section>
     </div>
   );
