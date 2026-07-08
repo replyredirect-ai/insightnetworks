@@ -152,7 +152,7 @@ backend:
           - POST https://admin.insightnet.in/api/v2/sessions/subscriber_login → 200 OK (subscriber success)
           - POST https://admin.insightnet.in/api/v2/sessions/subscriber_login → 404 Not Found (subscriber failure)
           
-          ⚠️ INFRASTRUCTURE ISSUE: External URL (https://repo-editor-12.preview.emergentagent.com/api/*) returns 
+          ⚠️ INFRASTRUCTURE ISSUE: External URL (https://network-hub-172.preview.emergentagent.com/api/*) returns 
           "404 page not found" for all requests. This is a Kubernetes ingress routing issue, NOT a code problem.
           Backend works perfectly on localhost:8001. Tests were run against localhost:8001.
 
@@ -203,7 +203,7 @@ backend:
           ✅ EXTERNAL URL VERIFICATION COMPLETE - ALL AUTHENTICATED ENDPOINTS WORKING
           
           Re-tested all authenticated endpoints against the EXTERNAL preview URL:
-          https://32ac4902-d835-4e50-b97b-45d102ca4b34.preview.emergentagent.com
+          https://network-hub-172.preview.emergentagent.com
           
           All authenticated data proxy endpoints confirmed working:
           ✓ GET /api/subscriber/dashboard - Returns correct subscriber data (username="poriya.traders", id=3637069)
@@ -437,7 +437,7 @@ agent_communication:
       ✓ Test 8: Missing Authentication header - PASS
       
       ⚠️ CRITICAL INFRASTRUCTURE ISSUE FOUND:
-      The external URL (https://repo-editor-12.preview.emergentagent.com/api/*) returns "404 page not found" 
+      The external URL (https://network-hub-172.preview.emergentagent.com/api/*) returns "404 page not found" 
       for all API requests. This is a Kubernetes ingress routing problem - the /api/* path is not being 
       routed to the backend service on port 8001.
       
@@ -455,7 +455,7 @@ agent_communication:
       ✅ EXTERNAL URL TESTING COMPLETE - ALL 8 BACKEND TESTS PASSED
       
       Successfully verified all backend endpoints against the external preview URL:
-      https://32ac4902-d835-4e50-b97b-45d102ca4b34.preview.emergentagent.com
+      https://network-hub-172.preview.emergentagent.com
       
       Test Suite Results (8/8 passed):
       ✓ Admin login (correct credentials) - Working
@@ -480,7 +480,7 @@ agent_communication:
           ✅ EXTERNAL URL VERIFICATION COMPLETE - ALL 8 TESTS PASSED
           
           Re-tested all endpoints against the EXTERNAL preview URL:
-          https://32ac4902-d835-4e50-b97b-45d102ca4b34.preview.emergentagent.com
+          https://network-hub-172.preview.emergentagent.com
           
           Test Results (all endpoints prefixed with /api):
           ✓ Test 1: POST /api/admin/login (correct credentials) - HTTP 200, success=true, token received
@@ -499,7 +499,7 @@ agent_communication:
       ✅ FRONTEND UI TESTING COMPLETE - ALL 4 LOGIN/DASHBOARD FLOWS WORKING
       
       Comprehensive end-to-end testing completed against external URL:
-      https://32ac4902-d835-4e50-b97b-45d102ca4b34.preview.emergentagent.com
+      https://network-hub-172.preview.emergentagent.com
       
       CRITICAL BUGS FOUND AND FIXED:
       
