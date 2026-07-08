@@ -11,6 +11,8 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 import httpx
+import re
+import time
 
 
 ROOT_DIR = Path(__file__).parent
@@ -34,6 +36,12 @@ XCEEDNET_AUTH_BASE_URL = os.environ.get('XCEEDNET_AUTH_BASE_URL', 'https://admin
 XCEEDNET_DEFAULT_SUBSCRIBER_DOMAIN = os.environ.get('XCEEDNET_DEFAULT_SUBSCRIBER_DOMAIN', 'bhopal.insightnet.in')
 # Default location subdomain used for admin data fetches (dashboard, subscribers, packages)
 XCEEDNET_DEFAULT_ADMIN_LOCATION = os.environ.get('XCEEDNET_DEFAULT_ADMIN_LOCATION', 'bhopal.insightnet.in')
+# Service account used server-side to look up subscribers by mobile number
+XCEEDNET_SERVICE_EMAIL = os.environ.get('XCEEDNET_SERVICE_EMAIL', '')
+XCEEDNET_SERVICE_PASSWORD = os.environ.get('XCEEDNET_SERVICE_PASSWORD', '')
+
+# Cached service admin token (in-memory; expires after ~50 minutes to be safe)
+_service_token_cache = {"token": None, "expires_at": 0.0}
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -57,6 +65,8 @@ class StatusCheckCreate(BaseModel):
 
 # XceedNet Authentication Models
 class SubscriberLoginRequest(BaseModel):
+    # `username` may contain either a real username OR a mobile number.
+    # (Kept as `username` for backwards compatibility.)
     username: str
     password: str
     domain: Optional[str] = None  # e.g. "bhopal.insightnet.in"
@@ -94,6 +104,147 @@ def _xceednet_error_message(payload: dict, default: str = "Login failed") -> str
         or payload.get('message')
         or default
     )
+
+
+# --- Mobile-number login helpers ------------------------------------------
+
+# Detect if the identifier a subscriber typed is really a mobile number.
+# Accepts 10-15 digit strings, optionally with a leading '+', country code, or
+# separators like spaces/hyphens (stripped before matching).
+_MOBILE_RE = re.compile(r'^\+?\d{10,15}$')
+
+
+def _is_mobile_number(value: str) -> bool:
+    if not value:
+        return False
+    digits_only = re.sub(r'[\s\-()]', '', value.strip())
+    return bool(_MOBILE_RE.match(digits_only))
+
+
+def _normalize_mobile(value: str) -> str:
+    """Return just the digits (drop +, spaces, hyphens, parens)."""
+    return re.sub(r'\D', '', value or '')
+
+
+async def _get_service_admin_token(force_refresh: bool = False) -> Optional[str]:
+    """
+    Return a cached admin token for the XceedNet service account so we can
+    perform privileged lookups (e.g. resolve a mobile number → subscriber
+    username). Re-logs in transparently when the cached token is expired.
+    """
+    if not XCEEDNET_SERVICE_EMAIL or not XCEEDNET_SERVICE_PASSWORD:
+        return None
+
+    now = time.time()
+    if (not force_refresh
+            and _service_token_cache["token"]
+            and _service_token_cache["expires_at"] > now):
+        return _service_token_cache["token"]
+
+    url = f"{XCEEDNET_AUTH_BASE_URL}/api/v2/sessions/user_login"
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            response = await http_client.post(
+                url,
+                json={
+                    "email": XCEEDNET_SERVICE_EMAIL,
+                    "password": XCEEDNET_SERVICE_PASSWORD,
+                },
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
+            )
+        if response.status_code in (200, 201):
+            data = response.json() or {}
+            token = data.get("auth_token")
+            if token:
+                # Cache for ~50 minutes; refresh proactively before typical expiry.
+                _service_token_cache["token"] = token
+                _service_token_cache["expires_at"] = now + 50 * 60
+                return token
+        logger.warning(
+            "Service admin login failed (status=%s body=%s)",
+            response.status_code, response.text[:200],
+        )
+    except httpx.RequestError as e:
+        logger.error(f"Service admin login network error: {e}")
+    return None
+
+
+async def _lookup_subscriber_username_by_mobile(mobile: str, domain: str) -> Optional[str]:
+    """
+    Use the service admin token to search subscribers by mobile number and
+    return the matching username. Returns None if not found.
+    """
+    token = await _get_service_admin_token()
+    if not token:
+        return None
+
+    normalized = _normalize_mobile(mobile)
+    # Try the exact number the user typed AND the last-10-digit form
+    # (subscribers are stored with country code prefix like 919926625075).
+    candidates = [normalized]
+    if len(normalized) > 10:
+        candidates.append(normalized[-10:])
+
+    url = f"https://{domain}/subscribers/search"
+    for _attempt in range(2):  # retry once after refreshing token on 401
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            for search_value in candidates:
+                try:
+                    response = await http_client.post(
+                        url,
+                        json={
+                            "search": {"value": search_value},
+                            "start": 0,
+                            "length": 5,
+                            "draw": 0,
+                        },
+                        headers={
+                            "Content-Type": "application/json",
+                            "Accept": "application/json",
+                            "Authentication": token,
+                        },
+                    )
+                except httpx.RequestError as e:
+                    logger.error(f"Subscriber lookup network error: {e}")
+                    return None
+
+                if response.status_code in (401, 403):
+                    # Token might be expired — refresh once and retry.
+                    token = await _get_service_admin_token(force_refresh=True)
+                    if not token:
+                        return None
+                    break  # retry outer loop with new token
+
+                if response.status_code != 200:
+                    logger.warning(
+                        "Subscriber search failed (%s): %s",
+                        response.status_code, response.text[:200],
+                    )
+                    continue
+
+                try:
+                    data = response.json() or {}
+                except Exception:
+                    continue
+
+                # XceedNet DataTables shape:
+                # {"data": [[id, username, name, account_no, mobile1, ...], ...]}
+                rows = data.get("data") or []
+                for row in rows:
+                    if not isinstance(row, list) or len(row) < 5:
+                        continue
+                    row_username = row[1] if isinstance(row[1], str) else None
+                    row_mobile = _normalize_mobile(str(row[4] or ""))
+                    if not row_username or not row_mobile:
+                        continue
+                    # Match on the last 10 digits (India mobile core) to ignore
+                    # country-code differences.
+                    if row_mobile[-10:] == normalized[-10:]:
+                        return row_username
+            else:
+                # Both search values done without hitting 401 — stop.
+                return None
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -135,17 +286,42 @@ async def get_status_checks():
 @api_router.post("/subscriber/login")
 async def subscriber_login(credentials: SubscriberLoginRequest):
     """
-    Proxy for XceedNet Subscriber Login.
+    Proxy for XceedNet Subscriber Login. Accepts either a username OR a
+    mobile number in the `username` field. If a mobile number is detected,
+    we first resolve it to the actual XceedNet username via an admin-scoped
+    subscriber search, then call subscriber_login with the resolved username.
 
     XceedNet endpoint: POST {AUTH_BASE_URL}/api/v2/sessions/subscriber_login
     Body: {"domain": "<location_subdomain>.<domain>", "username": "...", "password": "..."}
     Success response: {"auth_token": "eyJ..."}
     """
     domain = _normalize_domain(credentials.domain, XCEEDNET_DEFAULT_SUBSCRIBER_DOMAIN)
+
+    raw_identifier = (credentials.username or "").strip()
+    identifier_looked_up_via_mobile = False
+
+    # If the identifier looks like a phone number, resolve it to the real
+    # XceedNet username before calling subscriber_login.
+    if _is_mobile_number(raw_identifier):
+        resolved = await _lookup_subscriber_username_by_mobile(raw_identifier, domain)
+        if not resolved:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "success": False,
+                    "message": "No subscriber found for that mobile number.",
+                    "upstream_status": 404,
+                },
+            )
+        actual_username = resolved
+        identifier_looked_up_via_mobile = True
+    else:
+        actual_username = raw_identifier
+
     url = f"{XCEEDNET_AUTH_BASE_URL}/api/v2/sessions/subscriber_login"
     payload = {
         "domain": domain,
-        "username": credentials.username,
+        "username": actual_username,
         "password": credentials.password,
     }
 
@@ -170,6 +346,8 @@ async def subscriber_login(credentials: SubscriberLoginRequest):
                 "success": True,
                 "token": data["auth_token"],
                 "domain": domain,
+                "username": actual_username,
+                "resolved_from_mobile": identifier_looked_up_via_mobile,
                 "message": "Login successful",
             }
 

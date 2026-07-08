@@ -1,13 +1,23 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, Lock, ArrowLeft, Shield } from "lucide-react";
+import { User, Lock, ArrowLeft, Shield, Smartphone } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import xceednetApi from "../services/xceednetApi";
 
 const LOGIN_BG = "https://images.unsplash.com/photo-1606857521015-7f9fcf423740?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBkYXNoYm9hcmQlMjB0ZWNobm9sb2d5fGVufDB8fHx8MTc4MjIyNzQxOXww&ixlib=rb-4.1.0&q=85";
 
+// A "mobile-ish" identifier: only digits (optionally with a leading +),
+// spaces/hyphens/parens allowed as separators.
+const MOBILE_RE = /^\+?[\d\s\-()]{10,20}$/;
+const isMobile = (v) => {
+  if (!v) return false;
+  const digits = v.replace(/[\s\-()+]/g, "");
+  return MOBILE_RE.test(v) && digits.length >= 10 && digits.length <= 15;
+};
+
 export default function SubscriberLogin() {
   const navigate = useNavigate();
+  const [loginMode, setLoginMode] = useState("username"); // "username" | "mobile"
   const [credentials, setCredentials] = useState({
     username: "",
     password: "",
@@ -20,11 +30,20 @@ export default function SubscriberLogin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    const identifier = credentials.username.trim();
+
+    // Lightweight client-side sanity check when the user selected "Mobile Number" mode.
+    if (loginMode === "mobile" && !isMobile(identifier)) {
+      setError("Please enter a valid mobile number (10-15 digits).");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const response = await xceednetApi.subscriberLogin(
-        credentials.username.trim(),
+        identifier,
         credentials.password,
         credentials.domain.trim() || undefined
       );
@@ -92,27 +111,83 @@ export default function SubscriberLogin() {
 
             <form onSubmit={handleSubmit} data-testid="subscriber-login-form">
               <div className="space-y-5">
-                {/* Username Field */}
+                {/* Login mode toggle: Username / Mobile Number */}
+                <div
+                  className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl"
+                  data-testid="login-mode-toggle"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginMode("username");
+                      setError("");
+                      setCredentials((prev) => ({ ...prev, username: "" }));
+                    }}
+                    data-testid="mode-username"
+                    className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+                      loginMode === "username"
+                        ? "bg-white text-[#1E88FF] shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    <User size={16} />
+                    Username
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginMode("mobile");
+                      setError("");
+                      setCredentials((prev) => ({ ...prev, username: "" }));
+                    }}
+                    data-testid="mode-mobile"
+                    className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+                      loginMode === "mobile"
+                        ? "bg-white text-[#1E88FF] shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    <Smartphone size={16} />
+                    Mobile Number
+                  </button>
+                </div>
+
+                {/* Username / Mobile Field */}
                 <div>
                   <label htmlFor="username" className="block text-sm font-semibold text-[#0A1A33] mb-2">
-                    Username
+                    {loginMode === "mobile" ? "Mobile Number" : "Username"}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <User size={18} className="text-slate-400" />
+                      {loginMode === "mobile" ? (
+                        <Smartphone size={18} className="text-slate-400" />
+                      ) : (
+                        <User size={18} className="text-slate-400" />
+                      )}
                     </div>
                     <input
-                      type="text"
+                      type={loginMode === "mobile" ? "tel" : "text"}
                       id="username"
                       name="username"
                       value={credentials.username}
                       onChange={handleChange}
                       required
+                      inputMode={loginMode === "mobile" ? "tel" : "text"}
+                      autoComplete={loginMode === "mobile" ? "tel" : "username"}
                       data-testid="username-input"
                       className="w-full pl-11 pr-4 py-3 border-2 border-slate-200 rounded-xl focus:border-[#1E88FF] focus:outline-none focus:ring-2 focus:ring-[#1E88FF]/20 transition-colors"
-                      placeholder="Enter your username"
+                      placeholder={
+                        loginMode === "mobile"
+                          ? "e.g. 9926625075"
+                          : "Enter your username"
+                      }
                     />
                   </div>
+                  {loginMode === "mobile" && (
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      Enter the mobile number registered with your Insight Networks account.
+                    </p>
+                  )}
                 </div>
 
                 {/* Password Field */}

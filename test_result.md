@@ -155,6 +155,44 @@ backend:
           ⚠️ INFRASTRUCTURE ISSUE: External URL (https://network-hub-172.preview.emergentagent.com/api/*) returns 
           "404 page not found" for all requests. This is a Kubernetes ingress routing issue, NOT a code problem.
           Backend works perfectly on localhost:8001. Tests were run against localhost:8001.
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ MOBILE LOGIN PHASE 1 - ALL 13 TESTS PASSED (5 new mobile login tests + 8 regression tests)
+          
+          MOBILE LOGIN TESTS (NEW):
+          ✓ Test 9: Mobile login (correct password) - HTTP 200, success=true, resolved_from_mobile=true, username="poriya.traders"
+          ✓ Test 10: Mobile login (wrong password) - HTTP 401, success=false, message="Password is not correct"
+          ✓ Test 11: Mobile login (unknown mobile) - HTTP 401, success=false, message="No subscriber found for that mobile number.", upstream_status=404
+          ✓ Test 12: Mobile with country-code prefix (919926625075) - HTTP 200, success=true, resolved_from_mobile=true (last-10-digit matching works)
+          ✓ Test 13: Mobile with spaces/hyphens (+91 99266-25075) - HTTP 200, success=true, resolved_from_mobile=true (normalization works)
+          
+          REGRESSION TESTS (ALL PASSED):
+          ✓ Test 1: Admin login (correct credentials) - Working
+          ✓ Test 2: Admin login (wrong password) - Proper error handling
+          ✓ Test 3: Subscriber login with username (poriya.traders) - Working, resolved_from_mobile=false (backwards compatibility confirmed)
+          ✓ Test 4: Subscriber login (unknown username) - Proper error handling
+          ✓ Test 5: Subscriber dashboard (authenticated) - Working
+          ✓ Test 6: Admin dashboard (authenticated) - Working
+          ✓ Test 7: Subscribers list (authenticated) - Working
+          ✓ Test 8: Missing Authentication header - Proper 401 error
+          
+          IMPLEMENTATION VERIFIED:
+          - Mobile number detection via regex (10-15 digits, optional +/country code/separators)
+          - Mobile normalization (strips spaces, hyphens, parentheses)
+          - Username lookup via service admin token + /subscribers/search endpoint
+          - Last-10-digit matching for country code handling (e.g., 919926625075 matches 9926625075)
+          - Service token caching (50-minute TTL with auto-refresh on 401)
+          - Response includes resolved_from_mobile flag and resolved username
+          - Proper error messages for unknown mobile vs wrong password
+          
+          Backend logs confirm:
+          - Service admin token acquisition: POST https://admin.insightnet.in/api/v2/sessions/user_login → 200 OK
+          - Mobile lookup: POST https://bhopal.insightnet.in/subscribers/search → 200 OK
+          - Subscriber login: POST https://admin.insightnet.in/api/v2/sessions/subscriber_login → 200 OK
+          
+          All tests run against external URL: https://network-hub-172.preview.emergentagent.com/api
+          Mobile login feature is production-ready.
 
   - task: "XceedNet authenticated data proxies"
     implemented: true
@@ -224,7 +262,7 @@ frontend:
     file: "/app/frontend/src/pages/SubscriberLogin.jsx"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
@@ -391,16 +429,55 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 4
+  test_sequence: 5
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Subscriber login with mobile number (Phase 1)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: |
+      Phase 1 complete — subscriber login now accepts EITHER a username OR a mobile number.
+      
+      Backend changes (/app/backend/server.py):
+      1. Added service-account admin token cache (_get_service_admin_token) that logs in with
+         XCEEDNET_SERVICE_EMAIL/PASSWORD from .env and caches the token for 50 mins.
+      2. Added _lookup_subscriber_username_by_mobile() — uses admin token to search
+         /subscribers/search on the location subdomain, matches by last 10 digits of mobile
+         (because XceedNet stores numbers as e.g. 919926625075 with country code prefix),
+         returns the matching username or None.
+      3. Updated /api/subscriber/login to auto-detect mobile numbers (via _is_mobile_number),
+         resolve mobile → username, then call XceedNet subscriber_login with the resolved
+         username. Response now also includes `username` and `resolved_from_mobile: bool`.
+      4. .env: added XCEEDNET_SERVICE_EMAIL and XCEEDNET_SERVICE_PASSWORD (same as the admin
+         creds in memory/test_credentials.md).
+      
+      Backend verified via curl (all four cases):
+        * mobile + correct pw  → 200, success:true, resolved_from_mobile:true, username:"poriya.traders"
+        * mobile + wrong pw    → 401, "Password is not correct"
+        * unknown mobile       → 401, "No subscriber found for that mobile number."
+        * username + correct pw → 200 (backwards-compat still works)
+      
+      Frontend changes (/app/frontend/src/pages/SubscriberLogin.jsx):
+      * Added a two-tab toggle at the top of the form: "Username" / "Mobile Number".
+      * Field icon/label/placeholder/inputMode/autoComplete switch based on the selected tab.
+      * Mobile mode does a client-side sanity check (10-15 digits) before hitting the API.
+      * The password field, remember-me and submit button are unchanged.
+      
+      Please UI-test the mobile-login flow end-to-end using the tab toggle:
+        - Toggle to "Mobile Number", enter 9926625075 + password 9926625075 → should land on /subscriber-dashboard.
+        - Toggle to "Mobile Number", enter 9999999999 + anything → should show
+          "No subscriber found for that mobile number.".
+        - Toggle to "Mobile Number", enter 9926625075 + a wrong password → should show
+          "Password is not correct".
+        - Toggle back to "Username", enter poriya.traders + 9926625075 → should still work.
+        - The rest of the site should be unaffected.
+
   - agent: "main"
     message: |
       Bug fix ready for backend verification. Test credentials are in `/app/memory/test_credentials.md`.
@@ -552,3 +629,43 @@ agent_communication:
       
       ✅ ALL LOGIN FLOWS AND DASHBOARDS ARE FULLY FUNCTIONAL
       The bug fix is complete and verified. Both admin and subscriber portals are working correctly.
+  - agent: "testing"
+    message: |
+      ✅ MOBILE LOGIN PHASE 1 TESTING COMPLETE - ALL 13 TESTS PASSED
+      
+      Comprehensive testing completed for subscriber login-by-mobile feature against external URL:
+      https://network-hub-172.preview.emergentagent.com/api
+      
+      TEST RESULTS SUMMARY (13/13 passed):
+      
+      NEW MOBILE LOGIN TESTS (5/5 passed):
+      ✅ Mobile login with correct password (9926625075) - Resolves to username "poriya.traders", resolved_from_mobile=true
+      ✅ Mobile login with wrong password - Returns proper 401 error: "Password is not correct"
+      ✅ Mobile login with unknown mobile (9999999999) - Returns proper 401 error: "No subscriber found for that mobile number."
+      ✅ Mobile with country-code prefix (919926625075) - Last-10-digit matching works correctly
+      ✅ Mobile with formatting (+91 99266-25075) - Normalization strips spaces/hyphens correctly
+      
+      REGRESSION TESTS (8/8 passed):
+      ✅ Admin login (correct/wrong credentials) - Both scenarios working
+      ✅ Subscriber login with username (poriya.traders) - Backwards compatibility confirmed (resolved_from_mobile=false)
+      ✅ Subscriber login (unknown username) - Proper error handling
+      ✅ Authenticated endpoints (subscriber dashboard, admin dashboard, subscribers list) - All working
+      ✅ Missing Authentication header validation - Proper 401 error
+      
+      IMPLEMENTATION DETAILS VERIFIED:
+      1. Mobile detection: Regex matches 10-15 digits with optional +/country code/separators
+      2. Mobile normalization: Strips all non-digit characters before lookup
+      3. Username resolution: Uses service admin token to search /subscribers/search endpoint
+      4. Last-10-digit matching: Handles country code prefixes (919926625075 → 9926625075)
+      5. Service token caching: 50-minute TTL with automatic refresh on 401
+      6. Response structure: Includes resolved_from_mobile flag and resolved username
+      7. Error handling: Distinct messages for "unknown mobile" vs "wrong password"
+      
+      Backend logs confirm successful XceedNet API integration:
+      - Service admin login for token acquisition
+      - Subscriber search for mobile → username resolution
+      - Subscriber login with resolved username
+      
+      ✅ MOBILE LOGIN FEATURE IS PRODUCTION-READY
+      All 7 test scenarios from the review request passed successfully.
+      No issues found. Feature ready for frontend UI integration.

@@ -18,6 +18,7 @@ ADMIN_EMAIL = "insightnetworks@hotmail.com"
 ADMIN_PASSWORD = "Cisco@12345"
 SUBSCRIBER_USERNAME = "poriya.traders"
 SUBSCRIBER_PASSWORD = "9926625075"
+SUBSCRIBER_MOBILE = "9926625075"
 SUBSCRIBER_DOMAIN = "bhopal.insightnet.in"
 
 # Color codes for output
@@ -429,15 +430,275 @@ def test_missing_auth_header(result: TestResult):
         result.add_fail(test_name, f"Exception: {str(e)}")
 
 
+# ============================================================================
+# MOBILE LOGIN TESTS (Phase 1)
+# ============================================================================
+
+def test_mobile_login_success(result: TestResult) -> Optional[str]:
+    """Test 9: Mobile-number login with correct password"""
+    test_name = "Test 9: Mobile login (correct password)"
+    print(f"\n{YELLOW}Running:{RESET} {test_name}")
+    
+    try:
+        response = requests.post(
+            f"{API_BASE}/subscriber/login",
+            json={
+                "username": SUBSCRIBER_MOBILE,
+                "password": SUBSCRIBER_PASSWORD,
+                "domain": SUBSCRIBER_DOMAIN
+            },
+            timeout=30
+        )
+        
+        print(f"  Status: {response.status_code}")
+        data = response.json()
+        print(f"  Response: {json.dumps(data, indent=2)}")
+        
+        # Verify status code
+        if response.status_code != 200:
+            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
+            return None
+        
+        # Verify response structure
+        if not data.get("success"):
+            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
+            return None
+        
+        token = data.get("token")
+        if not token or not isinstance(token, str) or len(token) < 10:
+            result.add_fail(test_name, f"Expected non-empty token, got: {token}")
+            return None
+        
+        # Verify resolved_from_mobile flag
+        if not data.get("resolved_from_mobile"):
+            result.add_fail(test_name, f"Expected resolved_from_mobile=true, got: {data.get('resolved_from_mobile')}")
+            return None
+        
+        # Verify username was resolved
+        if data.get("username") != SUBSCRIBER_USERNAME:
+            result.add_fail(test_name, f"Expected username='{SUBSCRIBER_USERNAME}', got: {data.get('username')}")
+            return None
+        
+        # Verify domain
+        if data.get("domain") != SUBSCRIBER_DOMAIN:
+            result.add_fail(test_name, f"Expected domain='{SUBSCRIBER_DOMAIN}', got: {data.get('domain')}")
+            return None
+        
+        result.add_pass(test_name)
+        print(f"  Token (truncated): {token[:20]}...")
+        print(f"  Resolved username: {data.get('username')}")
+        return token
+        
+    except Exception as e:
+        result.add_fail(test_name, f"Exception: {str(e)}")
+        return None
+
+
+def test_mobile_login_wrong_password(result: TestResult):
+    """Test 10: Mobile-number login with wrong password"""
+    test_name = "Test 10: Mobile login (wrong password)"
+    print(f"\n{YELLOW}Running:{RESET} {test_name}")
+    
+    try:
+        response = requests.post(
+            f"{API_BASE}/subscriber/login",
+            json={
+                "username": SUBSCRIBER_MOBILE,
+                "password": "wrongpass",
+                "domain": SUBSCRIBER_DOMAIN
+            },
+            timeout=30
+        )
+        
+        print(f"  Status: {response.status_code}")
+        data = response.json()
+        print(f"  Response: {json.dumps(data, indent=2)}")
+        
+        # Verify status code
+        if response.status_code != 401:
+            result.add_fail(test_name, f"Expected HTTP 401, got {response.status_code}")
+            return
+        
+        # Verify response structure
+        if data.get("success") != False:
+            result.add_fail(test_name, f"Expected success=false, got {data.get('success')}")
+            return
+        
+        message = data.get("message", "")
+        if not message or not isinstance(message, str):
+            result.add_fail(test_name, f"Expected non-empty error message, got: {message}")
+            return
+        
+        # Verify message contains "Password" (from upstream "Password is not correct")
+        if "password" not in message.lower():
+            result.add_fail(test_name, f"Expected message to contain 'Password', got: {message}")
+            return
+        
+        result.add_pass(test_name)
+        
+    except Exception as e:
+        result.add_fail(test_name, f"Exception: {str(e)}")
+
+
+def test_mobile_login_unknown_mobile(result: TestResult):
+    """Test 11: Mobile-number login with unknown mobile"""
+    test_name = "Test 11: Mobile login (unknown mobile)"
+    print(f"\n{YELLOW}Running:{RESET} {test_name}")
+    
+    try:
+        response = requests.post(
+            f"{API_BASE}/subscriber/login",
+            json={
+                "username": "9999999999",
+                "password": "anything",
+                "domain": SUBSCRIBER_DOMAIN
+            },
+            timeout=30
+        )
+        
+        print(f"  Status: {response.status_code}")
+        data = response.json()
+        print(f"  Response: {json.dumps(data, indent=2)}")
+        
+        # Verify status code
+        if response.status_code != 401:
+            result.add_fail(test_name, f"Expected HTTP 401, got {response.status_code}")
+            return
+        
+        # Verify response structure
+        if data.get("success") != False:
+            result.add_fail(test_name, f"Expected success=false, got {data.get('success')}")
+            return
+        
+        message = data.get("message", "")
+        expected_message = "No subscriber found for that mobile number."
+        if message != expected_message:
+            result.add_fail(test_name, f"Expected message='{expected_message}', got: {message}")
+            return
+        
+        # Verify upstream_status is 404
+        if data.get("upstream_status") != 404:
+            result.add_fail(test_name, f"Expected upstream_status=404, got: {data.get('upstream_status')}")
+            return
+        
+        result.add_pass(test_name)
+        
+    except Exception as e:
+        result.add_fail(test_name, f"Exception: {str(e)}")
+
+
+def test_mobile_login_country_code(result: TestResult):
+    """Test 12: Mobile with country-code prefix (91)"""
+    test_name = "Test 12: Mobile with country-code prefix"
+    print(f"\n{YELLOW}Running:{RESET} {test_name}")
+    
+    try:
+        # Add country code prefix to mobile
+        mobile_with_cc = f"91{SUBSCRIBER_MOBILE}"
+        
+        response = requests.post(
+            f"{API_BASE}/subscriber/login",
+            json={
+                "username": mobile_with_cc,
+                "password": SUBSCRIBER_PASSWORD,
+                "domain": SUBSCRIBER_DOMAIN
+            },
+            timeout=30
+        )
+        
+        print(f"  Status: {response.status_code}")
+        data = response.json()
+        print(f"  Response: {json.dumps(data, indent=2)}")
+        
+        # Verify status code
+        if response.status_code != 200:
+            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
+            return
+        
+        # Verify response structure
+        if not data.get("success"):
+            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
+            return
+        
+        # Verify resolved_from_mobile flag
+        if not data.get("resolved_from_mobile"):
+            result.add_fail(test_name, f"Expected resolved_from_mobile=true, got: {data.get('resolved_from_mobile')}")
+            return
+        
+        # Verify username was resolved (last-10-digit matching should work)
+        if data.get("username") != SUBSCRIBER_USERNAME:
+            result.add_fail(test_name, f"Expected username='{SUBSCRIBER_USERNAME}', got: {data.get('username')}")
+            return
+        
+        result.add_pass(test_name)
+        print(f"  Resolved username: {data.get('username')}")
+        
+    except Exception as e:
+        result.add_fail(test_name, f"Exception: {str(e)}")
+
+
+def test_mobile_login_with_formatting(result: TestResult):
+    """Test 13: Mobile with spaces/hyphens"""
+    test_name = "Test 13: Mobile with spaces/hyphens"
+    print(f"\n{YELLOW}Running:{RESET} {test_name}")
+    
+    try:
+        # Format mobile with spaces and hyphens
+        formatted_mobile = "+91 99266-25075"
+        
+        response = requests.post(
+            f"{API_BASE}/subscriber/login",
+            json={
+                "username": formatted_mobile,
+                "password": SUBSCRIBER_PASSWORD,
+                "domain": SUBSCRIBER_DOMAIN
+            },
+            timeout=30
+        )
+        
+        print(f"  Status: {response.status_code}")
+        data = response.json()
+        print(f"  Response: {json.dumps(data, indent=2)}")
+        
+        # Verify status code
+        if response.status_code != 200:
+            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
+            return
+        
+        # Verify response structure
+        if not data.get("success"):
+            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
+            return
+        
+        # Verify resolved_from_mobile flag
+        if not data.get("resolved_from_mobile"):
+            result.add_fail(test_name, f"Expected resolved_from_mobile=true, got: {data.get('resolved_from_mobile')}")
+            return
+        
+        # Verify username was resolved
+        if data.get("username") != SUBSCRIBER_USERNAME:
+            result.add_fail(test_name, f"Expected username='{SUBSCRIBER_USERNAME}', got: {data.get('username')}")
+            return
+        
+        result.add_pass(test_name)
+        print(f"  Resolved username: {data.get('username')}")
+        
+    except Exception as e:
+        result.add_fail(test_name, f"Exception: {str(e)}")
+
+
 def main():
     print(f"\n{'='*70}")
-    print(f"XceedNet Backend API Testing")
+    print(f"XceedNet Backend API Testing - Mobile Login Phase 1")
     print(f"Backend URL: {BACKEND_URL}")
     print(f"{'='*70}")
     
     result = TestResult()
     
-    # Run all 8 tests
+    # Run original 8 tests
+    print(f"\n{YELLOW}{'='*70}{RESET}")
+    print(f"{YELLOW}ORIGINAL TESTS (Regression){RESET}")
+    print(f"{YELLOW}{'='*70}{RESET}")
     admin_token = test_admin_login_success(result)
     test_admin_login_failure(result)
     subscriber_token = test_subscriber_login_success(result)
@@ -446,6 +707,16 @@ def main():
     test_admin_dashboard(result, admin_token)
     test_subscribers_list(result, admin_token)
     test_missing_auth_header(result)
+    
+    # Run new mobile login tests
+    print(f"\n{YELLOW}{'='*70}{RESET}")
+    print(f"{YELLOW}MOBILE LOGIN TESTS (Phase 1){RESET}")
+    print(f"{YELLOW}{'='*70}{RESET}")
+    mobile_token = test_mobile_login_success(result)
+    test_mobile_login_wrong_password(result)
+    test_mobile_login_unknown_mobile(result)
+    test_mobile_login_country_code(result)
+    test_mobile_login_with_formatting(result)
     
     # Print summary
     success = result.summary()
