@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, Download, RefreshCw, Search, IndianRupee } from "lucide-react";
+import { FileText, Download, RefreshCw, Search, IndianRupee, CreditCard } from "lucide-react";
 import xceednetApi from "../../services/xceednetApi";
 
 function StatusPill({ status }) {
@@ -28,6 +28,7 @@ export default function Invoices() {
   const [error, setError] = useState(null);
   const [q, setQ] = useState("");
   const [downloadingId, setDownloadingId] = useState(null);
+  const [payingId, setPayingId] = useState(null);
 
   const fetchInvoices = async (search = "") => {
     try {
@@ -67,6 +68,31 @@ export default function Invoices() {
     } finally {
       setDownloadingId(null);
     }
+  };
+
+  const handlePay = async (inv) => {
+    setPayingId(inv.id);
+    setError(null);
+    try {
+      const r = await xceednetApi.initiatePayment({ kind: "invoice", invoice_id: inv.id });
+      if (r?.enc_request && r?.transaction_url && r?.access_code) {
+        xceednetApi.submitCCavenueForm({
+          transaction_url: r.transaction_url,
+          enc_request: r.enc_request,
+          access_code: r.access_code,
+        });
+      } else {
+        throw new Error("Could not initiate payment.");
+      }
+    } catch (err) {
+      setError(err.message || "Could not initiate payment.");
+      setPayingId(null);
+    }
+  };
+
+  const isPayable = (inv) => {
+    const s = (inv.status || "").toLowerCase();
+    return s === "open" || s === "payment_pending" || s === "overdue";
   };
 
   return (
@@ -128,19 +154,36 @@ export default function Invoices() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap"><StatusPill status={inv.status} /></td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <button
-                        onClick={() => handleDownload(inv)}
-                        disabled={downloadingId === inv.id}
-                        data-testid={`download-invoice-${inv.id}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-[#1E88FF] text-[#1E88FF] hover:bg-[#1E88FF] hover:text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                      >
-                        {downloadingId === inv.id ? (
-                          <RefreshCw size={14} className="animate-spin" />
-                        ) : (
-                          <Download size={14} />
+                      <div className="inline-flex items-center gap-2">
+                        {isPayable(inv) && (
+                          <button
+                            onClick={() => handlePay(inv)}
+                            disabled={payingId === inv.id}
+                            data-testid={`pay-invoice-${inv.id}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1E88FF] hover:bg-[#156cd1] text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                          >
+                            {payingId === inv.id ? (
+                              <RefreshCw size={14} className="animate-spin" />
+                            ) : (
+                              <CreditCard size={14} />
+                            )}
+                            {payingId === inv.id ? "Redirecting..." : "Pay Now"}
+                          </button>
                         )}
-                        PDF
-                      </button>
+                        <button
+                          onClick={() => handleDownload(inv)}
+                          disabled={downloadingId === inv.id}
+                          data-testid={`download-invoice-${inv.id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-[#1E88FF] text-[#1E88FF] hover:bg-[#1E88FF] hover:text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {downloadingId === inv.id ? (
+                            <RefreshCw size={14} className="animate-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          PDF
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

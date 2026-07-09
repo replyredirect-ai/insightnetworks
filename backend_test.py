@@ -1,929 +1,818 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for XceedNet - Phase 2 Customer Portal
-Tests regression + new Phase-2 endpoints (invoices, payments, profile, tickets)
+CCAvenue Payment Gateway Phase-3 Backend Test Suite
+Tests all payment initiation, callback, and result endpoints.
 """
-import requests
-import json
 import sys
+import httpx
+import json
 from typing import Dict, Any, Optional
 
-# Backend URL from frontend/.env
-BACKEND_URL = "https://network-hub-172.preview.emergentagent.com"
-API_BASE = f"{BACKEND_URL}/api"
+# Backend URL (external preview URL)
+BASE_URL = "https://network-hub-172.preview.emergentagent.com/api"
 
-# Test credentials from /app/memory/test_credentials.md
-ADMIN_EMAIL = "insightnetworks@hotmail.com"
-ADMIN_PASSWORD = "Cisco@12345"
+# Test credentials
 SUBSCRIBER_USERNAME = "poriya.traders"
 SUBSCRIBER_PASSWORD = "9926625075"
-SUBSCRIBER_MOBILE = "9926625075"
 SUBSCRIBER_DOMAIN = "bhopal.insightnet.in"
-SUBSCRIBER_ID = 3637069
 
-# Color codes for output
-GREEN = '\033[92m'
-RED = '\033[91m'
-YELLOW = '\033[93m'
-BLUE = '\033[94m'
-RESET = '\033[0m'
+# CCAvenue config (from .env)
+CCAVENUE_MERCHANT_ID = "1936794"
+CCAVENUE_ACCESS_CODE = "AVAZ89NC56AW30ZAWA"
+CCAVENUE_WORKING_KEY = "9A36C6DD773113B207725DF9AD3784C9"
 
-class TestResult:
-    def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.errors = []
+# Test state
+subscriber_token = None
+test_results = []
+
+
+def log_test(test_id: str, passed: bool, message: str, details: Optional[Dict] = None):
+    """Log test result"""
+    status = "✅ PASS" if passed else "❌ FAIL"
+    print(f"{status} | {test_id}: {message}")
+    test_results.append({
+        "test_id": test_id,
+        "passed": passed,
+        "message": message,
+        "details": details or {}
+    })
+
+
+def make_request(
+    method: str,
+    endpoint: str,
+    token: Optional[str] = None,
+    json_data: Optional[Dict] = None,
+    form_data: Optional[Dict] = None,
+    headers: Optional[Dict] = None,
+    follow_redirects: bool = False,
+) -> httpx.Response:
+    """Make HTTP request to backend"""
+    url = f"{BASE_URL}{endpoint}"
+    req_headers = headers or {}
     
-    def add_pass(self, test_name: str):
-        self.passed += 1
-        print(f"{GREEN}✓ PASS{RESET}: {test_name}")
+    if token:
+        req_headers["Authentication"] = token
     
-    def add_fail(self, test_name: str, reason: str):
-        self.failed += 1
-        error_msg = f"{test_name}: {reason}"
-        self.errors.append(error_msg)
-        print(f"{RED}✗ FAIL{RESET}: {error_msg}")
+    req_headers["X-Location-Domain"] = SUBSCRIBER_DOMAIN
     
-    def summary(self):
-        total = self.passed + self.failed
-        print(f"\n{'='*70}")
-        print(f"TEST SUMMARY: {self.passed}/{total} passed")
-        if self.failed > 0:
-            print(f"\n{RED}FAILED TESTS:{RESET}")
-            for error in self.errors:
-                print(f"  - {error}")
-        print(f"{'='*70}\n")
-        return self.failed == 0
+    with httpx.Client(timeout=30.0, follow_redirects=follow_redirects) as client:
+        if method == "GET":
+            return client.get(url, headers=req_headers)
+        elif method == "POST":
+            if form_data:
+                return client.post(url, data=form_data, headers=req_headers)
+            else:
+                return client.post(url, json=json_data, headers=req_headers)
+        elif method == "PATCH":
+            return client.patch(url, json=json_data, headers=req_headers)
+        elif method == "DELETE":
+            return client.delete(url, headers=req_headers)
+    
+    raise ValueError(f"Unsupported method: {method}")
+
+
+# ============================================================================
+# INITIATE PAYMENT TESTS (I1-I8)
+# ============================================================================
+
+def test_i1_login():
+    """I1: Login to get subscriber token"""
+    global subscriber_token
+    
+    response = make_request(
+        "POST",
+        "/subscriber/login",
+        json_data={
+            "username": SUBSCRIBER_USERNAME,
+            "password": SUBSCRIBER_PASSWORD,
+            "domain": SUBSCRIBER_DOMAIN,
+        }
+    )
+    
+    if response.status_code == 200:
+        data = response.json()
+        if data.get("success") and data.get("token"):
+            subscriber_token = data["token"]
+            log_test("I1", True, "Subscriber login successful", {"token_length": len(subscriber_token)})
+            return True
+        else:
+            log_test("I1", False, f"Login response missing token: {data}")
+            return False
+    else:
+        log_test("I1", False, f"Login failed: HTTP {response.status_code} - {response.text[:200]}")
+        return False
+
+
+def test_i2_initiate_recharge_100():
+    """I2: Initiate recharge ₹100 (success case)"""
+    response = make_request(
+        "POST",
+        "/payments/initiate",
+        token=subscriber_token,
+        json_data={
+            "kind": "recharge",
+            "amount": 100,
+            "remark": "Test top-up"
+        }
+    )
+    
+    if response.status_code == 200:
+        data = response.json()
+        
+        # Verify all required fields
+        checks = {
+            "success": data.get("success") == True,
+            "order_id_prefix": str(data.get("order_id", "")).startswith("RCH-"),
+            "transaction_url": str(data.get("transaction_url", "")).startswith("https://secure.ccavenue.com/transaction/"),
+            "access_code": data.get("access_code") == CCAVENUE_ACCESS_CODE,
+            "amount": data.get("amount") == 100.0,
+            "enc_request_exists": bool(data.get("enc_request")),
+        }
+        
+        # Verify enc_request is hex string
+        enc_request = data.get("enc_request", "")
+        enc_request_valid = (
+            len(enc_request) > 100 and
+            len(enc_request) % 32 == 0 and
+            all(c in "0123456789abcdefABCDEF" for c in enc_request)
+        )
+        checks["enc_request_hex"] = enc_request_valid
+        
+        all_passed = all(checks.values())
+        
+        if all_passed:
+            log_test("I2", True, "Recharge ₹100 initiated successfully", {
+                "order_id": data.get("order_id"),
+                "enc_request_length": len(enc_request),
+                **checks
+            })
+            return data  # Return for C1 test
+        else:
+            log_test("I2", False, f"Recharge ₹100 validation failed: {checks}", data)
+            return None
+    else:
+        log_test("I2", False, f"Recharge ₹100 failed: HTTP {response.status_code} - {response.text[:200]}")
+        return None
+
+
+def test_i3_initiate_recharge_below_minimum():
+    """I3: Initiate recharge ₹5 (below minimum ₹10)"""
+    response = make_request(
+        "POST",
+        "/payments/initiate",
+        token=subscriber_token,
+        json_data={
+            "kind": "recharge",
+            "amount": 5
+        }
+    )
+    
+    if response.status_code == 400:
+        data = response.json()
+        detail = data.get("detail", "").lower()
+        if "at least" in detail or "minimum" in detail or "₹10" in detail or "10" in detail:
+            log_test("I3", True, "Recharge ₹5 correctly rejected (below minimum)", {"detail": data.get("detail")})
+            return True
+        else:
+            log_test("I3", False, f"Wrong error message for below minimum: {data.get('detail')}")
+            return False
+    else:
+        log_test("I3", False, f"Expected HTTP 400, got {response.status_code}: {response.text[:200]}")
+        return False
+
+
+def test_i4_initiate_recharge_too_large():
+    """I4: Initiate recharge ₹250000 (too large)"""
+    response = make_request(
+        "POST",
+        "/payments/initiate",
+        token=subscriber_token,
+        json_data={
+            "kind": "recharge",
+            "amount": 250000
+        }
+    )
+    
+    if response.status_code == 400:
+        data = response.json()
+        detail = data.get("detail", "").lower()
+        if "too large" in detail or "maximum" in detail or "exceed" in detail:
+            log_test("I4", True, "Recharge ₹250000 correctly rejected (too large)", {"detail": data.get("detail")})
+            return True
+        else:
+            log_test("I4", False, f"Wrong error message for too large: {data.get('detail')}")
+            return False
+    else:
+        log_test("I4", False, f"Expected HTTP 400, got {response.status_code}: {response.text[:200]}")
+        return False
+
+
+def test_i5_initiate_paid_invoice():
+    """I5: Initiate invoice payment for already-paid invoice (4668187)"""
+    response = make_request(
+        "POST",
+        "/payments/initiate",
+        token=subscriber_token,
+        json_data={
+            "kind": "invoice",
+            "invoice_id": 4668187
+        }
+    )
+    
+    if response.status_code == 400:
+        data = response.json()
+        detail = data.get("detail", "").lower()
+        if "already paid" in detail or "payment_received" in detail:
+            log_test("I5", True, "Already-paid invoice correctly rejected", {"detail": data.get("detail")})
+            return True
+        else:
+            log_test("I5", False, f"Wrong error message for paid invoice: {data.get('detail')}")
+            return False
+    else:
+        log_test("I5", False, f"Expected HTTP 400, got {response.status_code}: {response.text[:200]}")
+        return False
+
+
+def test_i6_initiate_nonexistent_invoice():
+    """I6: Initiate invoice payment for non-existent invoice"""
+    response = make_request(
+        "POST",
+        "/payments/initiate",
+        token=subscriber_token,
+        json_data={
+            "kind": "invoice",
+            "invoice_id": 99999999
+        }
+    )
+    
+    if response.status_code == 404:
+        data = response.json()
+        detail = data.get("detail", "").lower()
+        if "not found" in detail:
+            log_test("I6", True, "Non-existent invoice correctly rejected", {"detail": data.get("detail")})
+            return True
+        else:
+            log_test("I6", False, f"Wrong error message for non-existent invoice: {data.get('detail')}")
+            return False
+    else:
+        log_test("I6", False, f"Expected HTTP 404, got {response.status_code}: {response.text[:200]}")
+        return False
+
+
+def test_i7_initiate_invalid_kind():
+    """I7: Initiate with invalid kind"""
+    response = make_request(
+        "POST",
+        "/payments/initiate",
+        token=subscriber_token,
+        json_data={
+            "kind": "bogus",
+            "amount": 100
+        }
+    )
+    
+    if response.status_code == 400:
+        data = response.json()
+        detail = data.get("detail", "").lower()
+        if "kind" in detail:
+            log_test("I7", True, "Invalid kind correctly rejected", {"detail": data.get("detail")})
+            return True
+        else:
+            log_test("I7", False, f"Wrong error message for invalid kind: {data.get('detail')}")
+            return False
+    else:
+        log_test("I7", False, f"Expected HTTP 400, got {response.status_code}: {response.text[:200]}")
+        return False
+
+
+def test_i8_initiate_no_auth():
+    """I8: Initiate without Authentication header"""
+    response = make_request(
+        "POST",
+        "/payments/initiate",
+        token=None,  # No token
+        json_data={
+            "kind": "recharge",
+            "amount": 100
+        }
+    )
+    
+    if response.status_code == 401:
+        log_test("I8", True, "No auth correctly rejected with HTTP 401")
+        return True
+    else:
+        log_test("I8", False, f"Expected HTTP 401, got {response.status_code}: {response.text[:200]}")
+        return False
+
+
+# ============================================================================
+# CRYPTO ROUND-TRIP TEST (C1)
+# ============================================================================
+
+def test_c1_crypto_roundtrip(i2_response: Optional[Dict]):
+    """C1: Decrypt enc_request and verify CCAvenue parameters"""
+    if not i2_response:
+        log_test("C1", False, "Skipped (I2 failed)")
+        return None
+    
+    enc_request = i2_response.get("enc_request")
+    order_id = i2_response.get("order_id")
+    
+    if not enc_request or not order_id:
+        log_test("C1", False, "Missing enc_request or order_id from I2")
+        return None
+    
+    try:
+        # Import ccavenue module from backend
+        sys.path.insert(0, "/app/backend")
+        import ccavenue
+        
+        # Decrypt
+        plain = ccavenue.decrypt(enc_request, CCAVENUE_WORKING_KEY)
+        params = ccavenue.parse_plaintext(plain)
+        
+        # Verify all required parameters
+        checks = {
+            "merchant_id": params.get("merchant_id") == CCAVENUE_MERCHANT_ID,
+            "order_id": params.get("order_id") == order_id,
+            "currency": params.get("currency") == "INR",
+            "amount": params.get("amount") == "100.00",
+            "redirect_url": params.get("redirect_url", "").endswith("/api/payments/ccavenue/callback"),
+            "cancel_url": params.get("cancel_url", "").endswith("/api/payments/ccavenue/callback"),
+            "language": params.get("language") == "EN",
+            "billing_name": bool(params.get("billing_name")),
+            "billing_country": params.get("billing_country") == "India",
+            "merchant_param3": params.get("merchant_param3") == "recharge",
+        }
+        
+        all_passed = all(checks.values())
+        
+        if all_passed:
+            log_test("C1", True, "Crypto round-trip successful, all params verified", {
+                "decrypted_params": params,
+                "checks": checks
+            })
+            return params
+        else:
+            log_test("C1", False, f"Crypto round-trip param validation failed: {checks}", params)
+            return None
+    except Exception as e:
+        log_test("C1", False, f"Crypto round-trip exception: {str(e)}")
+        return None
+
+
+# ============================================================================
+# CALLBACK TESTS (K1-K5)
+# ============================================================================
+
+def test_k1_callback_success(i2_response: Optional[Dict]):
+    """K1: Simulate CCAvenue Success callback"""
+    if not i2_response:
+        log_test("K1", False, "Skipped (I2 failed)")
+        return None
+    
+    order_id = i2_response.get("order_id")
+    if not order_id:
+        log_test("K1", False, "Missing order_id from I2")
+        return None
+    
+    try:
+        sys.path.insert(0, "/app/backend")
+        import ccavenue
+        
+        # Build success response
+        plain = (
+            f"order_id={order_id}&"
+            f"order_status=Success&"
+            f"amount=100.00&"
+            f"currency=INR&"
+            f"tracking_id=TEST123456&"
+            f"bank_ref_no=BR-TEST-001&"
+            f"payment_mode=Test Card&"
+            f"merchant_param1={order_id}&"
+            f"merchant_param2=3637069&"
+            f"merchant_param3=recharge&"
+            f"merchant_param4=&"
+            f"merchant_param5="
+        )
+        
+        enc_resp = ccavenue.encrypt(plain, CCAVENUE_WORKING_KEY)
+        
+        # POST to callback (do NOT follow redirects)
+        response = make_request(
+            "POST",
+            "/payments/ccavenue/callback",
+            token=None,  # CCAvenue callbacks don't use auth
+            form_data={"encResp": enc_resp},
+            follow_redirects=False
+        )
+        
+        # Should redirect (303 or 302)
+        if response.status_code in (303, 302):
+            location = response.headers.get("Location", "")
+            if "/payment-result" in location and f"order_id={order_id}" in location and "status=Success" in location:
+                log_test("K1", True, "Success callback processed, redirect correct", {
+                    "status_code": response.status_code,
+                    "location": location
+                })
+                return order_id
+            else:
+                log_test("K1", False, f"Redirect location incorrect: {location}")
+                return None
+        else:
+            log_test("K1", False, f"Expected HTTP 303/302, got {response.status_code}: {response.text[:200]}")
+            return None
+    except Exception as e:
+        log_test("K1", False, f"Callback exception: {str(e)}")
+        return None
+
+
+def test_k2_verify_payment_status(order_id: Optional[str]):
+    """K2: Verify payment status after K1"""
+    if not order_id:
+        log_test("K2", False, "Skipped (K1 failed)")
+        return False
+    
+    response = make_request(
+        "GET",
+        f"/payments/{order_id}",
+        token=subscriber_token
+    )
+    
+    if response.status_code == 200:
+        data = response.json()
+        payment = data.get("data", {})
+        
+        checks = {
+            "success": data.get("success") == True,
+            "status": payment.get("status") == "Success",
+            "tracking_id": payment.get("tracking_id") == "TEST123456",
+            "bank_ref_no": payment.get("bank_ref_no") == "BR-TEST-001",
+            "payment_mode": "Test" in str(payment.get("payment_mode", "")),
+            "kind": payment.get("kind") == "recharge",
+            "amount": payment.get("amount") == 100.0,
+        }
+        
+        all_passed = all(checks.values())
+        
+        if all_passed:
+            log_test("K2", True, "Payment status verified after callback", {
+                "order_id": order_id,
+                "checks": checks
+            })
+            return True
+        else:
+            log_test("K2", False, f"Payment status validation failed: {checks}", payment)
+            return False
+    else:
+        log_test("K2", False, f"Get payment failed: HTTP {response.status_code} - {response.text[:200]}")
+        return False
+
+
+def test_k3_callback_failure():
+    """K3: Simulate Failure callback"""
+    # First initiate a new recharge
+    response = make_request(
+        "POST",
+        "/payments/initiate",
+        token=subscriber_token,
+        json_data={
+            "kind": "recharge",
+            "amount": 250,
+            "remark": "Test failure"
+        }
+    )
+    
+    if response.status_code != 200:
+        log_test("K3", False, f"Failed to initiate recharge for K3: HTTP {response.status_code}")
+        return False
+    
+    data = response.json()
+    order_id = data.get("order_id")
+    
+    if not order_id:
+        log_test("K3", False, "Missing order_id from initiate")
+        return False
+    
+    try:
+        sys.path.insert(0, "/app/backend")
+        import ccavenue
+        
+        # Build failure response
+        plain = (
+            f"order_id={order_id}&"
+            f"order_status=Failure&"
+            f"amount=250.00&"
+            f"currency=INR&"
+            f"failure_message=Insufficient funds&"
+            f"merchant_param1={order_id}&"
+            f"merchant_param2=3637069&"
+            f"merchant_param3=recharge"
+        )
+        
+        enc_resp = ccavenue.encrypt(plain, CCAVENUE_WORKING_KEY)
+        
+        # POST to callback
+        callback_response = make_request(
+            "POST",
+            "/payments/ccavenue/callback",
+            token=None,
+            form_data={"encResp": enc_resp},
+            follow_redirects=False
+        )
+        
+        # Should redirect with status=Failure
+        if callback_response.status_code in (303, 302):
+            location = callback_response.headers.get("Location", "")
+            if "status=Failure" in location:
+                # Now verify payment status
+                verify_response = make_request(
+                    "GET",
+                    f"/payments/{order_id}",
+                    token=subscriber_token
+                )
+                
+                if verify_response.status_code == 200:
+                    verify_data = verify_response.json()
+                    payment = verify_data.get("data", {})
+                    
+                    if payment.get("status") == "Failure" and "Insufficient" in str(payment.get("failure_message", "")):
+                        log_test("K3", True, "Failure callback processed correctly", {
+                            "order_id": order_id,
+                            "status": payment.get("status"),
+                            "failure_message": payment.get("failure_message")
+                        })
+                        return True
+                    else:
+                        log_test("K3", False, f"Payment status incorrect: {payment}")
+                        return False
+                else:
+                    log_test("K3", False, f"Failed to verify payment: HTTP {verify_response.status_code}")
+                    return False
+            else:
+                log_test("K3", False, f"Redirect location missing status=Failure: {location}")
+                return False
+        else:
+            log_test("K3", False, f"Expected HTTP 303/302, got {callback_response.status_code}")
+            return False
+    except Exception as e:
+        log_test("K3", False, f"K3 exception: {str(e)}")
+        return False
+
+
+def test_k4_callback_amount_tamper():
+    """K4: Simulate amount tamper attack (Success but wrong amount)"""
+    # First initiate a new recharge
+    response = make_request(
+        "POST",
+        "/payments/initiate",
+        token=subscriber_token,
+        json_data={
+            "kind": "recharge",
+            "amount": 500,
+            "remark": "Test tamper"
+        }
+    )
+    
+    if response.status_code != 200:
+        log_test("K4", False, f"Failed to initiate recharge for K4: HTTP {response.status_code}")
+        return False
+    
+    data = response.json()
+    order_id = data.get("order_id")
+    
+    if not order_id:
+        log_test("K4", False, "Missing order_id from initiate")
+        return False
+    
+    try:
+        sys.path.insert(0, "/app/backend")
+        import ccavenue
+        
+        # Build tampered response (Success but amount=1.00 instead of 500.00)
+        plain = (
+            f"order_id={order_id}&"
+            f"order_status=Success&"
+            f"amount=1.00&"  # TAMPERED!
+            f"currency=INR&"
+            f"tracking_id=TAMPER123&"
+            f"bank_ref_no=BR-TAMPER&"
+            f"payment_mode=Test Card&"
+            f"merchant_param1={order_id}&"
+            f"merchant_param2=3637069&"
+            f"merchant_param3=recharge"
+        )
+        
+        enc_resp = ccavenue.encrypt(plain, CCAVENUE_WORKING_KEY)
+        
+        # POST to callback
+        callback_response = make_request(
+            "POST",
+            "/payments/ccavenue/callback",
+            token=None,
+            form_data={"encResp": enc_resp},
+            follow_redirects=False
+        )
+        
+        # Should redirect
+        if callback_response.status_code in (303, 302):
+            # Verify payment status should be Invalid (not Success)
+            verify_response = make_request(
+                "GET",
+                f"/payments/{order_id}",
+                token=subscriber_token
+            )
+            
+            if verify_response.status_code == 200:
+                verify_data = verify_response.json()
+                payment = verify_data.get("data", {})
+                
+                if payment.get("status") == "Invalid" and "mismatch" in str(payment.get("failure_message", "")).lower():
+                    log_test("K4", True, "Amount tamper detected correctly", {
+                        "order_id": order_id,
+                        "status": payment.get("status"),
+                        "failure_message": payment.get("failure_message")
+                    })
+                    return True
+                else:
+                    log_test("K4", False, f"Amount tamper NOT detected: {payment}")
+                    return False
+            else:
+                log_test("K4", False, f"Failed to verify payment: HTTP {verify_response.status_code}")
+                return False
+        else:
+            log_test("K4", False, f"Expected HTTP 303/302, got {callback_response.status_code}")
+            return False
+    except Exception as e:
+        log_test("K4", False, f"K4 exception: {str(e)}")
+        return False
+
+
+def test_k5_callback_unknown_order():
+    """K5: Callback with unknown order_id"""
+    try:
+        sys.path.insert(0, "/app/backend")
+        import ccavenue
+        
+        # Build response with unknown order_id
+        plain = (
+            "order_id=UNKNOWN-ORDER-12345&"
+            "order_status=Success&"
+            "amount=100.00&"
+            "currency=INR&"
+            "tracking_id=TEST999&"
+            "bank_ref_no=BR-TEST-999"
+        )
+        
+        enc_resp = ccavenue.encrypt(plain, CCAVENUE_WORKING_KEY)
+        
+        # POST to callback
+        response = make_request(
+            "POST",
+            "/payments/ccavenue/callback",
+            token=None,
+            form_data={"encResp": enc_resp},
+            follow_redirects=False
+        )
+        
+        # Should redirect with status=Invalid
+        if response.status_code in (303, 302):
+            location = response.headers.get("Location", "")
+            if "status=Invalid" in location:
+                log_test("K5", True, "Unknown order_id handled correctly", {
+                    "location": location
+                })
+                return True
+            else:
+                log_test("K5", False, f"Expected status=Invalid in redirect: {location}")
+                return False
+        else:
+            log_test("K5", False, f"Expected HTTP 303/302, got {response.status_code}")
+            return False
+    except Exception as e:
+        log_test("K5", False, f"K5 exception: {str(e)}")
+        return False
+
+
+# ============================================================================
+# OWNERSHIP TEST (O1)
+# ============================================================================
+
+def test_o1_ownership(k1_order_id: Optional[str]):
+    """O1: Try to access payment with no token (should fail)"""
+    if not k1_order_id:
+        log_test("O1", False, "Skipped (K1 failed)")
+        return False
+    
+    # Try without token
+    response = make_request(
+        "GET",
+        f"/payments/{k1_order_id}",
+        token=None  # No token
+    )
+    
+    if response.status_code == 401:
+        log_test("O1", True, "Payment access without token correctly rejected (HTTP 401)")
+        return True
+    else:
+        log_test("O1", False, f"Expected HTTP 401, got {response.status_code}: {response.text[:200]}")
+        return False
 
 
 # ============================================================================
 # REGRESSION TESTS (R1-R4)
 # ============================================================================
 
-def test_r1_subscriber_login_username(result: TestResult) -> Optional[str]:
-    """R1: POST /api/subscriber/login with username"""
-    test_name = "R1: Subscriber login (username)"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
+def test_r1_subscriber_login():
+    """R1: Subscriber login (regression)"""
+    response = make_request(
+        "POST",
+        "/subscriber/login",
+        json_data={
+            "username": SUBSCRIBER_USERNAME,
+            "password": SUBSCRIBER_PASSWORD,
+            "domain": SUBSCRIBER_DOMAIN,
+        }
+    )
     
-    try:
-        response = requests.post(
-            f"{API_BASE}/subscriber/login",
-            json={
-                "username": SUBSCRIBER_USERNAME,
-                "password": SUBSCRIBER_PASSWORD,
-                "domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
+    if response.status_code == 200:
         data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
-            return None
-        
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
-            return None
-        
-        token = data.get("token")
-        if not token or not isinstance(token, str) or len(token) < 10:
-            result.add_fail(test_name, f"Expected non-empty token, got: {token}")
-            return None
-        
-        result.add_pass(test_name)
-        print(f"  Token (truncated): {token[:20]}...")
-        return token
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-        return None
+        if data.get("success") and data.get("token"):
+            log_test("R1", True, "Subscriber login working (regression)")
+            return True
+        else:
+            log_test("R1", False, f"Login response invalid: {data}")
+            return False
+    else:
+        log_test("R1", False, f"Login failed: HTTP {response.status_code}")
+        return False
 
 
-def test_r2_subscriber_login_mobile(result: TestResult):
-    """R2: POST /api/subscriber/login with mobile"""
-    test_name = "R2: Subscriber login (mobile)"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
+def test_r2_subscriber_dashboard():
+    """R2: Subscriber dashboard (regression)"""
+    response = make_request(
+        "GET",
+        "/subscriber/dashboard",
+        token=subscriber_token
+    )
     
-    try:
-        response = requests.post(
-            f"{API_BASE}/subscriber/login",
-            json={
-                "username": SUBSCRIBER_MOBILE,
-                "password": SUBSCRIBER_PASSWORD,
-                "domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
+    if response.status_code == 200:
         data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
-            return
-        
-        if not data.get("resolved_from_mobile"):
-            result.add_fail(test_name, f"Expected resolved_from_mobile=true, got: {data.get('resolved_from_mobile')}")
-            return
-        
-        if data.get("username") != SUBSCRIBER_USERNAME:
-            result.add_fail(test_name, f"Expected username='{SUBSCRIBER_USERNAME}', got: {data.get('username')}")
-            return
-        
-        result.add_pass(test_name)
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
+        if data.get("success") and data.get("data"):
+            log_test("R2", True, "Subscriber dashboard working (regression)")
+            return True
+        else:
+            log_test("R2", False, f"Dashboard response invalid: {data}")
+            return False
+    else:
+        log_test("R2", False, f"Dashboard failed: HTTP {response.status_code}")
+        return False
 
 
-def test_r3_admin_login(result: TestResult) -> Optional[str]:
-    """R3: POST /api/admin/login"""
-    test_name = "R3: Admin login"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
+def test_r3_subscriber_invoices():
+    """R3: Subscriber invoices (regression)"""
+    response = make_request(
+        "GET",
+        "/subscriber/invoices?length=100",
+        token=subscriber_token
+    )
     
-    try:
-        response = requests.post(
-            f"{API_BASE}/admin/login",
-            json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
+    if response.status_code == 200:
         data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
-            return None
-        
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
-            return None
-        
-        token = data.get("token")
-        if not token:
-            result.add_fail(test_name, f"Expected non-empty token")
-            return None
-        
-        result.add_pass(test_name)
-        return token
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-        return None
+        if data.get("success") and "data" in data:
+            log_test("R3", True, "Subscriber invoices working (regression)")
+            return True
+        else:
+            log_test("R3", False, f"Invoices response invalid: {data}")
+            return False
+    else:
+        log_test("R3", False, f"Invoices failed: HTTP {response.status_code}")
+        return False
 
 
-def test_r4_subscriber_dashboard(result: TestResult, token: str):
-    """R4: GET /api/subscriber/dashboard"""
-    test_name = "R4: Subscriber dashboard"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
+def test_r4_account_statement_pdf():
+    """R4: Account statement PDF (regression)"""
+    response = make_request(
+        "GET",
+        "/subscriber/statement/pdf",
+        token=subscriber_token
+    )
     
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        response = requests.get(
-            f"{API_BASE}/subscriber/dashboard",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
-            return
-        
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
-            return
-        
-        dashboard_data = data.get("data", {})
-        if dashboard_data.get("username") != SUBSCRIBER_USERNAME:
-            result.add_fail(test_name, f"Expected username='{SUBSCRIBER_USERNAME}', got: {dashboard_data.get('username')}")
-            return
-        
-        result.add_pass(test_name)
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-# ============================================================================
-# PHASE-2 TESTS (T1-T8)
-# ============================================================================
-
-def test_t1_invoices_list(result: TestResult, token: str):
-    """T1: GET /api/subscriber/invoices?length=100"""
-    test_name = "T1: Invoices list"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        response = requests.get(
-            f"{API_BASE}/subscriber/invoices?length=100",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
-            return
-        
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
-            return
-        
-        invoice_data = data.get("data", {})
-        filtered = invoice_data.get("filtered", 0)
-        if filtered < 6:
-            result.add_fail(test_name, f"Expected filtered >= 6, got {filtered}")
-            return
-        
-        invoices = invoice_data.get("invoices", [])
-        if not isinstance(invoices, list):
-            result.add_fail(test_name, f"Expected invoices to be a list, got {type(invoices)}")
-            return
-        
-        # Check first invoice has required keys
-        if len(invoices) > 0:
-            inv = invoices[0]
-            required_keys = ["id", "invoice_no", "invoice_date", "amount", "status"]
-            missing = [k for k in required_keys if k not in inv]
-            if missing:
-                result.add_fail(test_name, f"Invoice missing keys: {missing}")
-                return
-        
-        result.add_pass(test_name)
-        print(f"  Filtered count: {filtered}, Invoices: {len(invoices)}")
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_t2_invoice_detail(result: TestResult, token: str):
-    """T2: GET /api/subscriber/invoices/4668187"""
-    test_name = "T2: Invoice detail"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        response = requests.get(
-            f"{API_BASE}/subscriber/invoices/4668187",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
-            return
-        
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
-            return
-        
-        invoice = data.get("data", {})
-        
-        # Check invoice_no
-        if invoice.get("invoice_no") != "INS-11":
-            result.add_fail(test_name, f"Expected invoice_no='INS-11', got: {invoice.get('invoice_no')}")
-            return
-        
-        # Check subscriber_id
-        if int(invoice.get("subscriber_id", 0)) != SUBSCRIBER_ID:
-            result.add_fail(test_name, f"Expected subscriber_id={SUBSCRIBER_ID}, got: {invoice.get('subscriber_id')}")
-            return
-        
-        # Check total_amount_cents
-        if int(invoice.get("total_amount_cents", 0)) != 47100:
-            result.add_fail(test_name, f"Expected total_amount_cents=47100, got: {invoice.get('total_amount_cents')}")
-            return
-        
-        result.add_pass(test_name)
-        print(f"  Invoice: {invoice.get('invoice_no')}, Amount: {invoice.get('total_amount_cents')}")
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_t3_invoice_not_found(result: TestResult, token: str):
-    """T3: GET /api/subscriber/invoices/999999 (non-existent)"""
-    test_name = "T3: Invoice not found"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        response = requests.get(
-            f"{API_BASE}/subscriber/invoices/999999",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        
-        # Should return 4xx status (404 or other error)
-        if response.status_code < 400:
-            result.add_fail(test_name, f"Expected status >= 400, got {response.status_code}")
-            return
-        
-        # If JSON response, check success=false
-        try:
-            data = response.json()
-            if data.get("success") != False and "detail" not in data:
-                result.add_fail(test_name, f"Expected success=false or detail field, got: {data}")
-                return
-        except:
-            pass  # Non-JSON response is acceptable for 404
-        
-        result.add_pass(test_name)
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_t4_invoice_pdf(result: TestResult, token: str):
-    """T4: GET /api/subscriber/invoices/4668187/pdf"""
-    test_name = "T4: Invoice PDF download"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        response = requests.get(
-            f"{API_BASE}/subscriber/invoices/4668187/pdf",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
-            return
-        
-        # Check Content-Type
+    if response.status_code == 200:
         content_type = response.headers.get("Content-Type", "")
-        if "application/pdf" not in content_type:
-            result.add_fail(test_name, f"Expected Content-Type with 'application/pdf', got: {content_type}")
-            return
-        
-        # Check Content-Disposition
-        content_disp = response.headers.get("Content-Disposition", "")
-        if "Invoice-INS-11.pdf" not in content_disp:
-            result.add_fail(test_name, f"Expected Content-Disposition with 'Invoice-INS-11.pdf', got: {content_disp}")
-            return
-        
-        # Check PDF content
-        body = response.content
-        if len(body) < 1000:
-            result.add_fail(test_name, f"Expected body length > 1000 bytes, got {len(body)}")
-            return
-        
-        # Check PDF header
-        if not body.startswith(b"%PDF-"):
-            result.add_fail(test_name, f"Expected PDF to start with b'%PDF-', got: {body[:10]}")
-            return
-        
-        # Check PDF footer (%%EOF in last 100 bytes)
-        if b"%%EOF" not in body[-100:]:
-            result.add_fail(test_name, f"Expected b'%%EOF' in last 100 bytes")
-            return
-        
-        result.add_pass(test_name)
-        print(f"  PDF size: {len(body)} bytes")
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_t5_payments_list(result: TestResult, token: str):
-    """T5: GET /api/subscriber/payments?length=100"""
-    test_name = "T5: Payments list"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        response = requests.get(
-            f"{API_BASE}/subscriber/payments?length=100",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
-            return
-        
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
-            return
-        
-        payment_data = data.get("data", {})
-        payments = payment_data.get("payments", [])
-        
-        if not isinstance(payments, list):
-            result.add_fail(test_name, f"Expected payments to be a list, got {type(payments)}")
-            return
-        
-        # Check at least 1 payment with required keys
-        if len(payments) < 1:
-            result.add_fail(test_name, f"Expected at least 1 payment, got {len(payments)}")
-            return
-        
-        payment = payments[0]
-        required_keys = ["id", "payment_no", "payment_date", "amount", "status"]
-        missing = [k for k in required_keys if k not in payment]
-        if missing:
-            result.add_fail(test_name, f"Payment missing keys: {missing}")
-            return
-        
-        result.add_pass(test_name)
-        print(f"  Payments count: {len(payments)}")
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_t6_profile_get(result: TestResult, token: str):
-    """T6: GET /api/subscriber/profile"""
-    test_name = "T6: Profile GET"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        response = requests.get(
-            f"{API_BASE}/subscriber/profile",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200, got {response.status_code}")
-            return
-        
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true, got {data.get('success')}")
-            return
-        
-        profile = data.get("data", {})
-        
-        # Check username
-        if profile.get("username") != SUBSCRIBER_USERNAME:
-            result.add_fail(test_name, f"Expected username='{SUBSCRIBER_USERNAME}', got: {profile.get('username')}")
-            return
-        
-        # Check name
-        if profile.get("name") != "Prasanna Thakur":
-            result.add_fail(test_name, f"Expected name='Prasanna Thakur', got: {profile.get('name')}")
-            return
-        
-        result.add_pass(test_name)
-        print(f"  Username: {profile.get('username')}, Name: {profile.get('name')}")
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_t7_profile_update(result: TestResult, token: str):
-    """T7: PATCH /api/subscriber/profile (update mobile2, verify, reset)"""
-    test_name = "T7: Profile PATCH"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        # Step 1: Update mobile2
-        print(f"  Step 1: Updating mobile2 to '9999900000'")
-        response = requests.patch(
-            f"{API_BASE}/subscriber/profile",
-            json={"mobile2": "9999900000"},
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200 on PATCH, got {response.status_code}")
-            return
-        
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true on PATCH, got {data.get('success')}")
-            return
-        
-        if not data.get("message"):
-            result.add_fail(test_name, f"Expected message field in PATCH response")
-            return
-        
-        # Step 2: Verify update
-        print(f"  Step 2: Verifying mobile2 was updated")
-        response = requests.get(
-            f"{API_BASE}/subscriber/profile",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        data = response.json()
-        profile = data.get("data", {})
-        mobile2 = profile.get("mobile2", "")
-        
-        # XceedNet may normalize mobile numbers by adding country code prefix
-        # Accept either the original value or with country code (91)
-        if mobile2 not in ["9999900000", "919999900000"]:
-            result.add_fail(test_name, f"Expected mobile2='9999900000' or '919999900000' after update, got: {mobile2}")
-            return
-        
-        print(f"  Verified: mobile2={mobile2} (XceedNet normalized)")
-        
-        # Step 3: Reset mobile2 to empty
-        print(f"  Step 3: Resetting mobile2 to empty string")
-        response = requests.patch(
-            f"{API_BASE}/subscriber/profile",
-            json={"mobile2": ""},
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        # Accept either success or failure on reset (both behaviors acceptable)
-        print(f"  Reset status: {response.status_code}")
-        
-        result.add_pass(test_name)
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_t8_tickets_flow(result: TestResult, token: str):
-    """T8: Full tickets flow (list, create, detail, reply, verify)"""
-    test_name = "T8: Tickets full flow"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        # Step a: Get initial ticket count
-        print(f"  Step a: Getting initial ticket count")
-        response = requests.get(
-            f"{API_BASE}/subscriber/tickets",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200 on GET tickets, got {response.status_code}")
-            return
-        
-        data = response.json()
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true on GET tickets")
-            return
-        
-        initial_count = data.get("data", {}).get("filtered", 0)
-        print(f"  Initial ticket count: {initial_count}")
-        
-        # Step b: Create new ticket
-        print(f"  Step b: Creating new ticket")
-        response = requests.post(
-            f"{API_BASE}/subscriber/tickets",
-            json={
-                "subject": "Automated test ticket",
-                "description": "This is a test from the backend test suite.",
-                "priority": "a_low"
-            },
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        data = response.json()
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200 on POST ticket, got {response.status_code}")
-            return
-        
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true on POST ticket")
-            return
-        
-        ticket_data = data.get("data", {})
-        new_ticket_id = ticket_data.get("id")
-        
-        if not new_ticket_id:
-            result.add_fail(test_name, f"Expected ticket id in response")
-            return
-        
-        if ticket_data.get("subject") != "Automated test ticket":
-            result.add_fail(test_name, f"Expected subject='Automated test ticket', got: {ticket_data.get('subject')}")
-            return
-        
-        print(f"  Created ticket ID: {new_ticket_id}")
-        
-        # Step c: Get ticket detail
-        print(f"  Step c: Getting ticket detail")
-        response = requests.get(
-            f"{API_BASE}/subscriber/tickets/{new_ticket_id}",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200 on GET ticket detail, got {response.status_code}")
-            return
-        
-        data = response.json()
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true on GET ticket detail")
-            return
-        
-        detail_data = data.get("data", {})
-        ticket = detail_data.get("ticket", {})
-        replies = detail_data.get("replies", [])
-        
-        if ticket.get("subject") != "Automated test ticket":
-            result.add_fail(test_name, f"Expected ticket subject='Automated test ticket'")
-            return
-        
-        if not isinstance(replies, list):
-            result.add_fail(test_name, f"Expected replies to be a list")
-            return
-        
-        initial_reply_count = len(replies)
-        print(f"  Initial reply count: {initial_reply_count}")
-        
-        # Step d: Add reply
-        print(f"  Step d: Adding reply to ticket")
-        response = requests.post(
-            f"{API_BASE}/subscriber/tickets/{new_ticket_id}/reply",
-            json={"message": "Automated reply from tests"},
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        if response.status_code != 200:
-            result.add_fail(test_name, f"Expected HTTP 200 on POST reply, got {response.status_code}")
-            return
-        
-        data = response.json()
-        if not data.get("success"):
-            result.add_fail(test_name, f"Expected success=true on POST reply")
-            return
-        
-        # Step e: Verify reply was added
-        print(f"  Step e: Verifying reply was added")
-        response = requests.get(
-            f"{API_BASE}/subscriber/tickets/{new_ticket_id}",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        data = response.json()
-        detail_data = data.get("data", {})
-        replies = detail_data.get("replies", [])
-        
-        if len(replies) != initial_reply_count + 1:
-            result.add_fail(test_name, f"Expected {initial_reply_count + 1} replies, got {len(replies)}")
-            return
-        
-        # Check latest reply message
-        latest_reply = replies[-1]
-        if latest_reply.get("message") != "Automated reply from tests":
-            result.add_fail(test_name, f"Expected latest reply message='Automated reply from tests'")
-            return
-        
-        print(f"  Reply verified: {latest_reply.get('message')}")
-        
-        # Step f: Verify total ticket count increased
-        print(f"  Step f: Verifying total ticket count")
-        response = requests.get(
-            f"{API_BASE}/subscriber/tickets",
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        data = response.json()
-        final_count = data.get("data", {}).get("filtered", 0)
-        
-        if final_count < initial_count + 1:
-            result.add_fail(test_name, f"Expected final count >= {initial_count + 1}, got {final_count}")
-            return
-        
-        print(f"  Final ticket count: {final_count}")
-        
-        result.add_pass(test_name)
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-# ============================================================================
-# AUTHORIZATION TESTS (A1-A4)
-# ============================================================================
-
-def test_a1_invoices_no_auth(result: TestResult):
-    """A1: GET /api/subscriber/invoices without Authentication header"""
-    test_name = "A1: Invoices without auth"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    try:
-        response = requests.get(
-            f"{API_BASE}/subscriber/invoices",
-            headers={"X-Location-Domain": SUBSCRIBER_DOMAIN},
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        
-        if response.status_code != 401:
-            result.add_fail(test_name, f"Expected HTTP 401, got {response.status_code}")
-            return
-        
-        result.add_pass(test_name)
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_a2_tickets_no_auth(result: TestResult):
-    """A2: POST /api/subscriber/tickets without Authentication header"""
-    test_name = "A2: Create ticket without auth"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    try:
-        response = requests.post(
-            f"{API_BASE}/subscriber/tickets",
-            json={
-                "subject": "Test",
-                "description": "Test",
-                "priority": "a_low"
-            },
-            headers={"X-Location-Domain": SUBSCRIBER_DOMAIN},
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        
-        if response.status_code != 401:
-            result.add_fail(test_name, f"Expected HTTP 401, got {response.status_code}")
-            return
-        
-        result.add_pass(test_name)
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_a3_profile_patch_no_auth(result: TestResult):
-    """A3: PATCH /api/subscriber/profile without Authentication header"""
-    test_name = "A3: Profile PATCH without auth"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    try:
-        response = requests.patch(
-            f"{API_BASE}/subscriber/profile",
-            json={"mobile2": "1234567890"},
-            headers={"X-Location-Domain": SUBSCRIBER_DOMAIN},
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        
-        if response.status_code != 401:
-            result.add_fail(test_name, f"Expected HTTP 401, got {response.status_code}")
-            return
-        
-        result.add_pass(test_name)
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
-
-
-def test_a4_change_password_wrong_current(result: TestResult, token: str):
-    """A4: POST /api/subscriber/change-password with wrong current password"""
-    test_name = "A4: Change password (wrong current)"
-    print(f"\n{YELLOW}Running:{RESET} {test_name}")
-    
-    if not token:
-        result.add_fail(test_name, "No token available")
-        return
-    
-    try:
-        response = requests.post(
-            f"{API_BASE}/subscriber/change-password",
-            json={
-                "current_password": "WRONG_PASSWORD",
-                "new_password": "newpass123"
-            },
-            headers={
-                "Authentication": token,
-                "X-Location-Domain": SUBSCRIBER_DOMAIN
-            },
-            timeout=30
-        )
-        
-        print(f"  Status: {response.status_code}")
-        data = response.json()
-        
-        if response.status_code != 401:
-            result.add_fail(test_name, f"Expected HTTP 401, got {response.status_code}")
-            return
-        
-        if data.get("success") != False:
-            result.add_fail(test_name, f"Expected success=false")
-            return
-        
-        message = data.get("message", "")
-        if "password" not in message.lower():
-            result.add_fail(test_name, f"Expected message about password, got: {message}")
-            return
-        
-        result.add_pass(test_name)
-        
-    except Exception as e:
-        result.add_fail(test_name, f"Exception: {str(e)}")
+        if "application/pdf" in content_type and len(response.content) > 1000:
+            log_test("R4", True, "Account statement PDF working (regression)", {
+                "content_type": content_type,
+                "size": len(response.content)
+            })
+            return True
+        else:
+            log_test("R4", False, f"PDF response invalid: content_type={content_type}, size={len(response.content)}")
+            return False
+    else:
+        log_test("R4", False, f"Statement PDF failed: HTTP {response.status_code}")
+        return False
 
 
 # ============================================================================
@@ -931,53 +820,82 @@ def test_a4_change_password_wrong_current(result: TestResult, token: str):
 # ============================================================================
 
 def main():
-    print(f"\n{'='*70}")
-    print(f"XceedNet Backend API Testing - Phase 2 Customer Portal")
-    print(f"Backend URL: {BACKEND_URL}")
-    print(f"{'='*70}")
+    print("=" * 80)
+    print("CCAvenue Payment Gateway Phase-3 Backend Test Suite")
+    print("=" * 80)
+    print()
     
-    result = TestResult()
+    # INITIATE PAYMENT TESTS
+    print("--- INITIATE PAYMENT TESTS (I1-I8) ---")
+    test_i1_login()
+    if not subscriber_token:
+        print("\n❌ CRITICAL: Login failed, cannot continue with other tests")
+        return
+    
+    i2_response = test_i2_initiate_recharge_100()
+    test_i3_initiate_recharge_below_minimum()
+    test_i4_initiate_recharge_too_large()
+    test_i5_initiate_paid_invoice()
+    test_i6_initiate_nonexistent_invoice()
+    test_i7_initiate_invalid_kind()
+    test_i8_initiate_no_auth()
+    print()
+    
+    # CRYPTO ROUND-TRIP TEST
+    print("--- CRYPTO ROUND-TRIP TEST (C1) ---")
+    test_c1_crypto_roundtrip(i2_response)
+    print()
+    
+    # CALLBACK TESTS
+    print("--- CALLBACK TESTS (K1-K5) ---")
+    k1_order_id = test_k1_callback_success(i2_response)
+    test_k2_verify_payment_status(k1_order_id)
+    test_k3_callback_failure()
+    test_k4_callback_amount_tamper()
+    test_k5_callback_unknown_order()
+    print()
+    
+    # OWNERSHIP TEST
+    print("--- OWNERSHIP TEST (O1) ---")
+    test_o1_ownership(k1_order_id)
+    print()
     
     # REGRESSION TESTS
-    print(f"\n{BLUE}{'='*70}{RESET}")
-    print(f"{BLUE}REGRESSION TESTS (R1-R4){RESET}")
-    print(f"{BLUE}{'='*70}{RESET}")
+    print("--- REGRESSION TESTS (R1-R4) ---")
+    test_r1_subscriber_login()
+    test_r2_subscriber_dashboard()
+    test_r3_subscriber_invoices()
+    test_r4_account_statement_pdf()
+    print()
     
-    subscriber_token = test_r1_subscriber_login_username(result)
-    test_r2_subscriber_login_mobile(result)
-    admin_token = test_r3_admin_login(result)
-    test_r4_subscriber_dashboard(result, subscriber_token)
+    # SUMMARY
+    print("=" * 80)
+    print("TEST SUMMARY")
+    print("=" * 80)
     
-    # PHASE-2 TESTS
-    print(f"\n{BLUE}{'='*70}{RESET}")
-    print(f"{BLUE}PHASE-2 TESTS (T1-T8){RESET}")
-    print(f"{BLUE}{'='*70}{RESET}")
+    passed = sum(1 for r in test_results if r["passed"])
+    failed = sum(1 for r in test_results if not r["passed"])
+    total = len(test_results)
     
-    test_t1_invoices_list(result, subscriber_token)
-    test_t2_invoice_detail(result, subscriber_token)
-    test_t3_invoice_not_found(result, subscriber_token)
-    test_t4_invoice_pdf(result, subscriber_token)
-    test_t5_payments_list(result, subscriber_token)
-    test_t6_profile_get(result, subscriber_token)
-    test_t7_profile_update(result, subscriber_token)
-    test_t8_tickets_flow(result, subscriber_token)
+    print(f"Total: {total} | Passed: {passed} | Failed: {failed}")
+    print()
     
-    # AUTHORIZATION TESTS
-    print(f"\n{BLUE}{'='*70}{RESET}")
-    print(f"{BLUE}AUTHORIZATION TESTS (A1-A4){RESET}")
-    print(f"{BLUE}{'='*70}{RESET}")
+    if failed > 0:
+        print("FAILED TESTS:")
+        for r in test_results:
+            if not r["passed"]:
+                print(f"  ❌ {r['test_id']}: {r['message']}")
+        print()
     
-    test_a1_invoices_no_auth(result)
-    test_a2_tickets_no_auth(result)
-    test_a3_profile_patch_no_auth(result)
-    test_a4_change_password_wrong_current(result, subscriber_token)
+    if passed == total:
+        print("✅ ALL TESTS PASSED!")
+    else:
+        print(f"❌ {failed} TEST(S) FAILED")
     
-    # Print summary
-    success = result.summary()
+    print("=" * 80)
     
-    # Exit with appropriate code
-    sys.exit(0 if success else 1)
+    return 0 if failed == 0 else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

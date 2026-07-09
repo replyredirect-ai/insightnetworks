@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Wifi, CreditCard, Package, Calendar, Download, Upload, Activity, Clock,
   RefreshCw, FileText, ArrowRight, User, IndianRupee, CheckCircle2, TrendingUp,
+  Wallet, Plus,
 } from "lucide-react";
 import xceednetApi from "../../services/xceednetApi";
 
@@ -34,6 +35,9 @@ export default function Overview() {
   const [error, setError] = useState(null);
   const [downloadingStatement, setDownloadingStatement] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
+  const [payingInvoiceId, setPayingInvoiceId] = useState(null);
+  const [rechargeAmount, setRechargeAmount] = useState("");
+  const [rechargeLoading, setRechargeLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -84,6 +88,58 @@ export default function Overview() {
     } finally {
       setDownloadingInvoiceId(null);
     }
+  };
+
+  const handlePayInvoice = async (inv) => {
+    setPayingInvoiceId(inv.id);
+    setError(null);
+    try {
+      const r = await xceednetApi.initiatePayment({ kind: "invoice", invoice_id: inv.id });
+      if (r?.enc_request && r?.transaction_url && r?.access_code) {
+        xceednetApi.submitCCavenueForm({
+          transaction_url: r.transaction_url,
+          enc_request: r.enc_request,
+          access_code: r.access_code,
+        });
+      } else {
+        throw new Error("Could not initiate payment.");
+      }
+    } catch (err) {
+      setError(err.message || "Could not initiate payment.");
+      setPayingInvoiceId(null);
+    }
+  };
+
+  const handleRecharge = async (amountValue) => {
+    const amount = parseFloat(amountValue);
+    if (!amount || amount < 10) {
+      setError("Please enter a recharge amount of at least \u20b910.");
+      return;
+    }
+    setError(null);
+    setRechargeLoading(true);
+    try {
+      const r = await xceednetApi.initiatePayment({
+        kind: "recharge", amount, remark: "Account recharge",
+      });
+      if (r?.enc_request && r?.transaction_url && r?.access_code) {
+        xceednetApi.submitCCavenueForm({
+          transaction_url: r.transaction_url,
+          enc_request: r.enc_request,
+          access_code: r.access_code,
+        });
+      } else {
+        throw new Error("Could not initiate recharge.");
+      }
+    } catch (err) {
+      setError(err.message || "Could not initiate recharge.");
+      setRechargeLoading(false);
+    }
+  };
+
+  const isPayable = (inv) => {
+    const s = (inv.status || "").toLowerCase();
+    return s === "open" || s === "payment_pending" || s === "overdue";
   };
 
   if (loading) {
@@ -162,6 +218,62 @@ export default function Overview() {
             </>
           )}
         </button>
+      </div>
+
+      {/* Recharge / Top-up */}
+      <div className="bg-gradient-to-r from-[#0A1A33] to-[#1E88FF] rounded-2xl p-6 lg:p-8 shadow-lg text-white">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+              <Wallet size={28} className="text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">Recharge your account</h3>
+              <p className="text-white/80 text-sm mt-1">
+                Add funds instantly via UPI, cards, wallets or net-banking. Processed securely by CCAvenue.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {[500, 1000, 2000].map((amt) => (
+              <button
+                key={amt}
+                onClick={() => handleRecharge(amt)}
+                disabled={rechargeLoading}
+                data-testid={`quick-recharge-${amt}`}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/30 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                &#8377;{amt}
+              </button>
+            ))}
+            <div className="flex items-center bg-white rounded-lg overflow-hidden shadow-sm">
+              <span className="pl-3 pr-1 text-[#0A1A33] font-semibold text-sm">&#8377;</span>
+              <input
+                type="number"
+                min="10"
+                step="1"
+                placeholder="Custom"
+                value={rechargeAmount}
+                onChange={(e) => setRechargeAmount(e.target.value)}
+                data-testid="recharge-custom-amount"
+                className="w-24 py-2 px-1 text-[#0A1A33] focus:outline-none text-sm"
+              />
+              <button
+                onClick={() => handleRecharge(rechargeAmount)}
+                disabled={rechargeLoading}
+                data-testid="recharge-submit"
+                className="px-4 py-2 bg-[#0A1A33] hover:bg-black text-white font-semibold text-sm disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                {rechargeLoading ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <Plus size={14} />
+                )}
+                Recharge
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Status cards */}
@@ -317,7 +429,7 @@ export default function Overview() {
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Due By</th>
                   <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Amount</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">PDF</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -333,19 +445,36 @@ export default function Overview() {
                     </td>
                     <td className="px-6 py-3.5 whitespace-nowrap"><StatusPill status={inv.status} /></td>
                     <td className="px-6 py-3.5 whitespace-nowrap text-right">
-                      <button
-                        onClick={() => handleDownloadInvoice(inv)}
-                        disabled={downloadingInvoiceId === inv.id}
-                        data-testid={`download-invoice-${inv.id}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-[#1E88FF] text-[#1E88FF] hover:bg-[#1E88FF] hover:text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-                      >
-                        {downloadingInvoiceId === inv.id ? (
-                          <RefreshCw size={12} className="animate-spin" />
-                        ) : (
-                          <Download size={12} />
+                      <div className="inline-flex items-center gap-2">
+                        {isPayable(inv) && (
+                          <button
+                            onClick={() => handlePayInvoice(inv)}
+                            disabled={payingInvoiceId === inv.id}
+                            data-testid={`ov-pay-invoice-${inv.id}`}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#1E88FF] hover:bg-[#156cd1] text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                          >
+                            {payingInvoiceId === inv.id ? (
+                              <RefreshCw size={12} className="animate-spin" />
+                            ) : (
+                              <CreditCard size={12} />
+                            )}
+                            Pay
+                          </button>
                         )}
-                        PDF
-                      </button>
+                        <button
+                          onClick={() => handleDownloadInvoice(inv)}
+                          disabled={downloadingInvoiceId === inv.id}
+                          data-testid={`download-invoice-${inv.id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-[#1E88FF] text-[#1E88FF] hover:bg-[#1E88FF] hover:text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                        >
+                          {downloadingInvoiceId === inv.id ? (
+                            <RefreshCw size={12} className="animate-spin" />
+                          ) : (
+                            <Download size={12} />
+                          )}
+                          PDF
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

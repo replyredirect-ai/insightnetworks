@@ -192,6 +192,39 @@ class XceedNetAPI {
     window.URL.revokeObjectURL(url);
   }
 
+  // Payments (CCAvenue)
+  async initiatePayment({ kind, invoice_id, amount, remark } = {}) {
+    return this.request('/api/payments/initiate', {
+      method: 'POST',
+      body: JSON.stringify({ kind, invoice_id, amount, remark }),
+    });
+  }
+
+  async getPayment(orderId) {
+    return this.request(`/api/payments/${orderId}`, { method: 'GET' });
+  }
+
+  // Build and submit a hidden form to CCAvenue's transaction endpoint.
+  submitCCavenueForm({ transaction_url, enc_request, access_code }) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = transaction_url;
+
+    const addField = (name, value) => {
+      const i = document.createElement('input');
+      i.type = 'hidden';
+      i.name = name;
+      i.value = value;
+      form.appendChild(i);
+    };
+
+    addField('encRequest', enc_request);
+    addField('access_code', access_code);
+
+    document.body.appendChild(form);
+    form.submit();
+  }
+
   // Payments
   async getSubscriberPayments({ q = '', start = 0, length = 25 } = {}) {
     const params = new URLSearchParams({ q, start: String(start), length: String(length) });

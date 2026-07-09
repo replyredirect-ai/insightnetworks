@@ -25,6 +25,7 @@ import Tickets from "@/pages/subscriber/Tickets";
 import TicketNew from "@/pages/subscriber/TicketNew";
 import TicketDetail from "@/pages/subscriber/TicketDetail";
 import Profile from "@/pages/subscriber/Profile";
+import PaymentResult from "@/pages/PaymentResult";
 
 function App() {
   return (
@@ -73,6 +74,9 @@ function App() {
             {/* Legacy /subscriber → /subscriber-dashboard */}
             <Route path="/subscriber" element={<Navigate to="/subscriber-dashboard" replace />} />
             <Route path="/subscriber/*" element={<Navigate to="/subscriber-dashboard" replace />} />
+
+            {/* Payment result (after CCAvenue redirect) — inside marketing Layout */}
+            <Route path="/payment-result" element={<PaymentResult />} />
           </Route>
 
           <Route path="*" element={<Home />} />

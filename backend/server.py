@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -1807,6 +1807,7 @@ def _build_account_statement_pdf(
     LIGHT_BLUE = colors.HexColor("#E3F2FD")
     GREY_50 = colors.HexColor("#F8FAFC")
     GREY_100 = colors.HexColor("#F1F5F9")
+    _ = GREY_100  # noqa: F841 (retained for potential future use)
     GREY_200 = colors.HexColor("#E2E8F0")
     GREY_500 = colors.HexColor("#64748B")
     GREEN = colors.HexColor("#16A34A")
@@ -2110,6 +2111,281 @@ def _build_account_statement_pdf(
 
     doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
     return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# CCAvenue Payment Gateway
+# ---------------------------------------------------------------------------
+import ccavenue  # noqa: E402
+
+CCAVENUE_MERCHANT_ID = os.environ.get("CCAVENUE_MERCHANT_ID", "")
+CCAVENUE_ACCESS_CODE = os.environ.get("CCAVENUE_ACCESS_CODE", "")
+CCAVENUE_WORKING_KEY = os.environ.get("CCAVENUE_WORKING_KEY", "")
+CCAVENUE_ENVIRONMENT = os.environ.get("CCAVENUE_ENVIRONMENT", "production")
+CCAVENUE_REDIRECT_URL = os.environ.get("CCAVENUE_REDIRECT_URL", "")
+CCAVENUE_CANCEL_URL = os.environ.get("CCAVENUE_CANCEL_URL", CCAVENUE_REDIRECT_URL)
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "")
+
+
+class PaymentInitiateRequest(BaseModel):
+    kind: str  # "invoice" | "recharge"
+    invoice_id: Optional[int] = None      # required when kind = "invoice"
+    amount: Optional[float] = None        # required when kind = "recharge"
+    remark: Optional[str] = None
+
+
+def _new_order_id(prefix: str) -> str:
+    """Short, URL-safe, unique order id. CCAvenue caps order_id at 30 chars."""
+    return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+
+@api_router.post("/payments/initiate")
+async def payment_initiate(
+    payload: PaymentInitiateRequest,
+    authentication: Optional[str] = Header(None),
+    x_location_domain: Optional[str] = Header(None),
+):
+    """Create a payment session in Mongo, encrypt a CCAvenue request payload,
+    and return the transaction URL + encRequest for the frontend to POST."""
+    if not (CCAVENUE_MERCHANT_ID and CCAVENUE_ACCESS_CODE and CCAVENUE_WORKING_KEY):
+        raise HTTPException(status_code=503, detail="Payment gateway not configured")
+
+    sid = await _require_subscriber(authentication)
+    domain = _normalize_domain(x_location_domain, XCEEDNET_DEFAULT_SUBSCRIBER_DOMAIN)
+
+    # Load subscriber profile (name/email/mobile for billing pre-fill)
+    dash_status, dash_data = await _proxy_get(
+        domain, "/api/v2/subscribers/dashboard", authentication
+    )
+    if dash_status != 200:
+        raise HTTPException(status_code=401, detail="Session expired, please log in again")
+    profile = dash_data or {}
+
+    kind = (payload.kind or "").lower()
+    if kind not in ("invoice", "recharge"):
+        raise HTTPException(status_code=400, detail="kind must be 'invoice' or 'recharge'")
+
+    # Resolve amount + description
+    invoice_no = None
+    if kind == "invoice":
+        if not payload.invoice_id:
+            raise HTTPException(status_code=400, detail="invoice_id required for kind=invoice")
+        inv_status, inv_data = await _admin_service_request(
+            "GET", domain, f"/subscriber_invoices/{payload.invoice_id}"
+        )
+        inv = (inv_data.get("data") if isinstance(inv_data, dict) else None) if inv_status == 200 else None
+        if not isinstance(inv, dict) or int(inv.get("subscriber_id") or 0) != sid:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        if inv.get("status") == "payment_received":
+            raise HTTPException(status_code=400, detail="This invoice is already paid")
+        total_cents = int(inv.get("total_amount_cents") or inv.get("amount_cents") or 0)
+        if total_cents <= 0:
+            raise HTTPException(status_code=400, detail="Invoice amount is invalid")
+        amount = round(total_cents / 100.0, 2)
+        invoice_no = inv.get("invoice_no") or str(payload.invoice_id)
+        description = f"Payment for invoice {invoice_no}"
+    else:  # recharge
+        if payload.amount is None or float(payload.amount) < 10:
+            raise HTTPException(status_code=400, detail="Recharge amount must be at least ₹10")
+        if float(payload.amount) > 100000:
+            raise HTTPException(status_code=400, detail="Recharge amount too large")
+        amount = round(float(payload.amount), 2)
+        description = payload.remark or "Account recharge"
+
+    order_id = _new_order_id("INS" if kind == "invoice" else "RCH")
+
+    payment_doc = {
+        "id": str(uuid.uuid4()),
+        "order_id": order_id,
+        "subscriber_id": sid,
+        "username": profile.get("username"),
+        "domain": domain,
+        "kind": kind,
+        "invoice_id": payload.invoice_id,
+        "invoice_no": invoice_no,
+        "amount": amount,
+        "currency": "INR",
+        "status": "Initiated",
+        "description": description,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "gateway": "ccavenue",
+        "environment": CCAVENUE_ENVIRONMENT,
+    }
+    await db.payments.insert_one(payment_doc)
+
+    billing_name = profile.get("name") or profile.get("username") or "Subscriber"
+    billing_email = profile.get("email") or "noreply@insightnet.in"
+    billing_tel = str(profile.get("mobile1") or "").lstrip("+")[-10:] or ""
+    billing_address = profile.get("address1") or profile.get("address2") or "Bhopal"
+    billing_city = profile.get("city") or "Bhopal"
+    billing_state = profile.get("state") or "Madhya Pradesh"
+    billing_zip = profile.get("pincode") or "462043"
+
+    params = {
+        "merchant_id": CCAVENUE_MERCHANT_ID,
+        "order_id": order_id,
+        "currency": "INR",
+        "amount": f"{amount:.2f}",
+        "redirect_url": CCAVENUE_REDIRECT_URL,
+        "cancel_url": CCAVENUE_CANCEL_URL,
+        "language": "EN",
+        # Billing block
+        "billing_name": billing_name,
+        "billing_email": billing_email,
+        "billing_tel": billing_tel,
+        "billing_address": billing_address,
+        "billing_city": billing_city,
+        "billing_state": billing_state,
+        "billing_zip": billing_zip,
+        "billing_country": "India",
+        # Merchant metadata (echoed back in the callback for reconciliation)
+        "merchant_param1": order_id,
+        "merchant_param2": str(sid),
+        "merchant_param3": kind,
+        "merchant_param4": str(payload.invoice_id or ""),
+        "merchant_param5": invoice_no or "",
+    }
+    plaintext = ccavenue.build_plaintext(params)
+    enc_request = ccavenue.encrypt(plaintext, CCAVENUE_WORKING_KEY)
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "transaction_url": ccavenue.transaction_url(CCAVENUE_ENVIRONMENT),
+        "enc_request": enc_request,
+        "access_code": CCAVENUE_ACCESS_CODE,
+        "amount": amount,
+        "description": description,
+    }
+
+
+@api_router.post("/payments/ccavenue/callback")
+async def ccavenue_callback(request: Request):
+    """CCAvenue posts back here after payment. Decrypt, verify, update Mongo,
+    optionally sync to XceedNet, and redirect the user to /payment-result."""
+    form = await request.form()
+    enc_resp = form.get("encResp") or ""
+    if not enc_resp:
+        return _payment_result_redirect(order_id="", status="Invalid", message="Missing response")
+
+    try:
+        plain = ccavenue.decrypt(enc_resp, CCAVENUE_WORKING_KEY)
+        resp = ccavenue.parse_plaintext(plain)
+    except Exception as e:
+        logger.error(f"CCAvenue decrypt failed: {e}")
+        return _payment_result_redirect(order_id="", status="Invalid", message="Bad response")
+
+    order_id = resp.get("order_id", "")
+    order_status = resp.get("order_status", "")
+    amount_str = resp.get("amount", "0")
+    tracking_id = resp.get("tracking_id", "")
+    bank_ref_no = resp.get("bank_ref_no", "")
+    payment_mode = resp.get("payment_mode", "")
+    failure_message = resp.get("failure_message", "")
+
+    payment_doc = await db.payments.find_one({"order_id": order_id})
+    if not payment_doc:
+        logger.warning(f"CCAvenue callback for unknown order_id={order_id}")
+        return _payment_result_redirect(order_id=order_id, status="Invalid", message="Unknown order")
+
+    # Amount tamper-check
+    try:
+        resp_amount = float(amount_str or 0)
+    except (TypeError, ValueError):
+        resp_amount = 0
+    expected_amount = float(payment_doc.get("amount") or 0)
+
+    status_map = {"Success": "Success", "Failure": "Failure",
+                  "Aborted": "Aborted", "Invalid": "Invalid"}
+    internal_status = status_map.get(order_status, "Failure")
+    if internal_status == "Success" and abs(resp_amount - expected_amount) > 0.01:
+        logger.warning(
+            "CCAvenue amount mismatch order=%s expected=%.2f got=%.2f",
+            order_id, expected_amount, resp_amount,
+        )
+        internal_status = "Invalid"
+        failure_message = failure_message or "Amount mismatch"
+
+    xceednet_sync = {"attempted": False, "success": False, "message": None}
+
+    # If success and this was for a specific invoice, try to record the payment
+    # in XceedNet so the invoice status flips to payment_received automatically.
+    if internal_status == "Success" and payment_doc.get("kind") == "invoice" and payment_doc.get("invoice_id"):
+        xceednet_sync["attempted"] = True
+        try:
+            amount_cents = int(round(resp_amount * 100))
+            body = {
+                "subscriber_payment": {
+                    "subscriber_id": payment_doc["subscriber_id"],
+                    "amount_cents": amount_cents,
+                    "amount_currency": "INR",
+                    "payment_date": datetime.now().strftime("%Y-%m-%d"),
+                    "mode_of_payment": "online",
+                    "remark": f"CCAvenue {tracking_id} / {bank_ref_no}",
+                    "subscriber_invoice_id": payment_doc["invoice_id"],
+                }
+            }
+            sync_status, sync_data = await _admin_service_request(
+                "POST", payment_doc.get("domain", XCEEDNET_DEFAULT_SUBSCRIBER_DOMAIN),
+                "/subscriber_payments", body=body,
+            )
+            if sync_status in (200, 201):
+                xceednet_sync["success"] = True
+                xceednet_sync["message"] = "Invoice marked as paid on XceedNet."
+            else:
+                xceednet_sync["message"] = _xceednet_error_message(sync_data, "Sync failed")
+                logger.warning(f"XceedNet payment sync failed: {sync_status} {sync_data}")
+        except Exception as e:
+            xceednet_sync["message"] = str(e)
+            logger.exception("XceedNet payment sync raised")
+
+    await db.payments.update_one(
+        {"order_id": order_id},
+        {"$set": {
+            "status": internal_status,
+            "order_status": order_status,
+            "tracking_id": tracking_id,
+            "bank_ref_no": bank_ref_no,
+            "payment_mode": payment_mode,
+            "failure_message": failure_message,
+            "resp_amount": resp_amount,
+            "xceednet_sync": xceednet_sync,
+            "raw_response": {k: v for k, v in resp.items() if k not in ("card_number",)},
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+
+    return _payment_result_redirect(
+        order_id=order_id, status=internal_status,
+        message=failure_message if internal_status != "Success" else "",
+    )
+
+
+def _payment_result_redirect(order_id: str, status: str, message: str = ""):
+    """302 the browser to the React /payment-result page with query params."""
+    from fastapi.responses import RedirectResponse
+    from urllib.parse import quote
+    base = FRONTEND_BASE_URL.rstrip("/") if FRONTEND_BASE_URL else ""
+    url = f"{base}/payment-result?order_id={quote(order_id)}&status={quote(status)}"
+    if message:
+        url += f"&message={quote(message)}"
+    return RedirectResponse(url=url, status_code=303)
+
+
+@api_router.get("/payments/{order_id}")
+async def get_payment(
+    order_id: str,
+    authentication: Optional[str] = Header(None),
+):
+    """Fetch a payment record for the payment-result page."""
+    sid = await _require_subscriber(authentication)
+    doc = await db.payments.find_one({"order_id": order_id}, {"_id": 0})
+    if not doc or int(doc.get("subscriber_id") or 0) != sid:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    # Strip anything we don't want to expose
+    doc.pop("raw_response", None)
+    return {"success": True, "data": doc}
 
 
 # ---------------------------------------------------------------------------
