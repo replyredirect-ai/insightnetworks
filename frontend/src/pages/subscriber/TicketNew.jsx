@@ -36,9 +36,9 @@ export default function TicketNew() {
       });
       const id = r?.data?.id;
       if (id) {
-        navigate(`/subscriber/tickets/${id}`);
+        navigate(`/subscriber-dashboard/tickets/${id}`);
       } else {
-        navigate("/subscriber/tickets");
+        navigate("/subscriber-dashboard/tickets");
       }
     } catch (err) {
       if (err.status === 401) {
@@ -55,20 +55,12 @@ export default function TicketNew() {
   return (
     <div className="max-w-2xl" data-testid="ticket-new-page">
       <Link
-        to="/subscriber/tickets"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#1E88FF] mb-4"
+        to="/subscriber-dashboard/tickets"
+        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#1E88FF] mb-6"
       >
         <ArrowLeft size={16} />
         Back to tickets
       </Link>
-
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-[#0A1A33] flex items-center gap-3">
-          <LifeBuoy className="text-orange-600" size={28} />
-          New Support Ticket
-        </h1>
-        <p className="text-slate-600 mt-1">Tell us how we can help</p>
-      </div>
 
       <form
         onSubmit={handleSubmit}
@@ -131,7 +123,7 @@ export default function TicketNew() {
 
         <div className="flex justify-end gap-3">
           <Link
-            to="/subscriber/tickets"
+            to="/subscriber-dashboard/tickets"
             className="px-4 py-2.5 border-2 border-slate-300 text-slate-700 hover:border-slate-400 rounded-lg font-semibold"
           >
             Cancel

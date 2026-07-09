@@ -53,26 +53,26 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Legacy dashboard path — redirect to new portal */}
-            <Route path="/subscriber-dashboard" element={<Navigate to="/subscriber" replace />} />
-          </Route>
-
-          {/* Subscriber portal — its own layout (sidebar), no marketing chrome */}
-          <Route
-            path="/subscriber"
-            element={
-              <ProtectedRoute requiredType="subscriber">
-                <SubscriberLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Overview />} />
-            <Route path="invoices" element={<Invoices />} />
-            <Route path="payments" element={<Payments />} />
-            <Route path="tickets" element={<Tickets />} />
-            <Route path="tickets/new" element={<TicketNew />} />
-            <Route path="tickets/:id" element={<TicketDetail />} />
-            <Route path="profile" element={<Profile />} />
+            {/* Subscriber Dashboard — inside marketing Layout (Navbar + Footer) */}
+            <Route
+              path="/subscriber-dashboard"
+              element={
+                <ProtectedRoute requiredType="subscriber">
+                  <SubscriberLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Overview />} />
+              <Route path="invoices" element={<Invoices />} />
+              <Route path="payments" element={<Payments />} />
+              <Route path="tickets" element={<Tickets />} />
+              <Route path="tickets/new" element={<TicketNew />} />
+              <Route path="tickets/:id" element={<TicketDetail />} />
+              <Route path="profile" element={<Profile />} />
+            </Route>
+            {/* Legacy /subscriber → /subscriber-dashboard */}
+            <Route path="/subscriber" element={<Navigate to="/subscriber-dashboard" replace />} />
+            <Route path="/subscriber/*" element={<Navigate to="/subscriber-dashboard" replace />} />
           </Route>
 
           <Route path="*" element={<Home />} />

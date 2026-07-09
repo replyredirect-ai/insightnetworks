@@ -59,14 +59,14 @@ export default function TicketDetail() {
     return (
       <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-8 text-center">
         <p className="text-red-700 mb-4">{error || "Ticket not found"}</p>
-        <Link to="/subscriber/tickets" className="text-[#1E88FF] font-semibold hover:underline">Back to tickets</Link>
+        <Link to="/subscriber-dashboard/tickets" className="text-[#1E88FF] font-semibold hover:underline">Back to tickets</Link>
       </div>
     );
   }
 
   return (
     <div className="max-w-3xl" data-testid="ticket-detail-page">
-      <Link to="/subscriber/tickets" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#1E88FF] mb-4">
+      <Link to="/subscriber-dashboard/tickets" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#1E88FF] mb-4">
         <ArrowLeft size={16} />
         Back to tickets
       </Link>

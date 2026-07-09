@@ -165,6 +165,33 @@ class XceedNetAPI {
     window.URL.revokeObjectURL(url);
   }
 
+  async downloadAccountStatement(filename) {
+    const headers = {};
+    if (this.token) headers['Authentication'] = this.token;
+    if (this.locationDomain) headers['X-Location-Domain'] = this.locationDomain;
+    const response = await fetch(`${BACKEND_URL}/api/subscriber/statement/pdf`, {
+      method: 'GET',
+      headers,
+    });
+    if (!response.ok) {
+      let msg = `Failed to download statement (${response.status})`;
+      try {
+        const err = await response.json();
+        msg = err.detail || err.message || msg;
+      } catch { /* ignore */ }
+      throw new Error(msg);
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || `AccountStatement.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
   // Payments
   async getSubscriberPayments({ q = '', start = 0, length = 25 } = {}) {
     const params = new URLSearchParams({ q, start: String(start), length: String(length) });

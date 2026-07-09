@@ -65,18 +65,14 @@ export default function Tickets() {
 
   return (
     <div data-testid="tickets-page">
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-[#0A1A33] flex items-center gap-3">
-            <LifeBuoy className="text-orange-600" size={28} />
-            Support Tickets
-          </h1>
-          <p className="text-slate-600 mt-1">Get help from our support team</p>
-        </div>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+        <p className="text-sm text-slate-600">
+          {tickets.length} ticket{tickets.length === 1 ? "" : "s"} on record
+        </p>
         <Link
-          to="/subscriber/tickets/new"
+          to="/subscriber-dashboard/tickets/new"
           data-testid="new-ticket-button"
-          className="inline-flex items-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] text-white px-4 py-2.5 rounded-lg font-semibold transition-colors"
+          className="inline-flex items-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] text-white px-4 py-2.5 rounded-lg font-semibold transition-colors shadow-sm"
         >
           <Plus size={18} />
           New Ticket
@@ -95,7 +91,7 @@ export default function Tickets() {
             <LifeBuoy size={40} className="mx-auto mb-3 text-slate-300" />
             <p className="mb-4">You have no support tickets yet.</p>
             <Link
-              to="/subscriber/tickets/new"
+              to="/subscriber-dashboard/tickets/new"
               className="inline-flex items-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] text-white px-4 py-2.5 rounded-lg font-semibold"
             >
               <Plus size={18} />
@@ -107,7 +103,7 @@ export default function Tickets() {
             {tickets.map((t, idx) => (
               <Link
                 key={t.id || idx}
-                to={`/subscriber/tickets/${t.id}`}
+                to={`/subscriber-dashboard/tickets/${t.id}`}
                 data-testid={`ticket-row-${t.id}`}
                 className="block px-6 py-4 hover:bg-slate-50 transition-colors"
               >

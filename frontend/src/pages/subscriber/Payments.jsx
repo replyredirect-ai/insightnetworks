@@ -36,14 +36,6 @@ export default function Payments() {
 
   return (
     <div data-testid="payments-page">
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-[#0A1A33] flex items-center gap-3">
-          <CreditCard className="text-purple-600" size={28} />
-          Payment History
-        </h1>
-        <p className="text-slate-600 mt-1">All your past payments and recharges</p>
-      </div>
-
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white border-2 border-slate-200 rounded-2xl p-5">

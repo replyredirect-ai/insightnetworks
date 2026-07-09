@@ -912,12 +912,17 @@ def _build_invoice_pdf(inv: Dict[str, Any]) -> bytes:
     # DejaVu Sans is included in fonts-dejavu-core on all Debian/Ubuntu images.
     FONT_REGULAR = "Helvetica"
     FONT_BOLD = "Helvetica-Bold"
-    _dejavu_dir = Path("/usr/share/fonts/truetype/dejavu")
+    _dejavu_dir = Path(__file__).parent / "assets"
     if (_dejavu_dir / "DejaVuSans.ttf").exists():
         try:
             if "DejaVuSans" not in pdfmetrics.getRegisteredFontNames():
                 pdfmetrics.registerFont(TTFont("DejaVuSans", str(_dejavu_dir / "DejaVuSans.ttf")))
                 pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", str(_dejavu_dir / "DejaVuSans-Bold.ttf")))
+                pdfmetrics.registerFontFamily(
+                    "DejaVuSans",
+                    normal="DejaVuSans", bold="DejaVuSans-Bold",
+                    italic="DejaVuSans", boldItalic="DejaVuSans-Bold",
+                )
             FONT_REGULAR = "DejaVuSans"
             FONT_BOLD = "DejaVuSans-Bold"
         except Exception as e:
@@ -1730,6 +1735,381 @@ async def subscriber_ticket_reply(
     await db.ticket_replies.insert_one(reply_doc)
     reply_doc.pop("_id", None)
     return {"success": True, "data": reply_doc, "message": "Reply added."}
+
+
+@api_router.get("/subscriber/statement/pdf")
+async def subscriber_statement_pdf(
+    authentication: Optional[str] = Header(None),
+    x_location_domain: Optional[str] = Header(None),
+):
+    """Generate a comprehensive Account Statement PDF containing subscriber profile,
+    invoices summary, and payment history — one professional document per subscriber."""
+    sid = await _require_subscriber(authentication)
+    domain = _normalize_domain(x_location_domain, XCEEDNET_DEFAULT_SUBSCRIBER_DOMAIN)
+
+    # Fetch profile (subscriber's own token OK)
+    dash_status, dash_data = await _proxy_get(
+        domain, "/api/v2/subscribers/dashboard", authentication
+    )
+    profile = dash_data if dash_status == 200 and isinstance(dash_data, dict) else {}
+
+    # Fetch invoices (admin scope)
+    inv_status, inv_data = await _admin_service_request(
+        "POST", domain, "/subscriber_invoices/search",
+        body={"subscriber_id": sid, "start": 0, "length": 200, "draw": 0},
+    )
+    invoices = []
+    if inv_status == 200:
+        for r in (inv_data.get("data") or []):
+            if isinstance(r, list):
+                invoices.append(_row_to_dict(r, _INVOICE_COLUMNS))
+
+    # Fetch payments (admin scope)
+    pay_status, pay_data = await _admin_service_request(
+        "POST", domain, "/subscriber_payments/search",
+        body={"subscriber_id": sid, "start": 0, "length": 200, "draw": 0},
+    )
+    payments = []
+    if pay_status == 200:
+        for r in (pay_data.get("data") or []):
+            if isinstance(r, list):
+                payments.append(_row_to_dict(r, _PAYMENT_COLUMNS))
+
+    pdf_bytes = _build_account_statement_pdf(profile, invoices, payments)
+    filename = f"AccountStatement-{profile.get('account_no') or sid}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _build_account_statement_pdf(
+    profile: Dict[str, Any],
+    invoices: List[Dict[str, Any]],
+    payments: List[Dict[str, Any]],
+) -> bytes:
+    """Multi-section Account Statement PDF: header, subscriber summary,
+    invoices table, payments table, footer."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak,
+    )
+
+    NAVY = colors.HexColor("#0A1A33")
+    BLUE = colors.HexColor("#1E88FF")
+    LIGHT_BLUE = colors.HexColor("#E3F2FD")
+    GREY_50 = colors.HexColor("#F8FAFC")
+    GREY_100 = colors.HexColor("#F1F5F9")
+    GREY_200 = colors.HexColor("#E2E8F0")
+    GREY_500 = colors.HexColor("#64748B")
+    GREEN = colors.HexColor("#16A34A")
+
+    FONT_REGULAR = "Helvetica"
+    FONT_BOLD = "Helvetica-Bold"
+    _dejavu_dir = Path(__file__).parent / "assets"
+    if (_dejavu_dir / "DejaVuSans.ttf").exists():
+        try:
+            if "DejaVuSans" not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont("DejaVuSans", str(_dejavu_dir / "DejaVuSans.ttf")))
+                pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", str(_dejavu_dir / "DejaVuSans-Bold.ttf")))
+                pdfmetrics.registerFontFamily(
+                    "DejaVuSans",
+                    normal="DejaVuSans", bold="DejaVuSans-Bold",
+                    italic="DejaVuSans", boldItalic="DejaVuSans-Bold",
+                )
+            FONT_REGULAR = "DejaVuSans"
+            FONT_BOLD = "DejaVuSans-Bold"
+        except Exception:
+            pass
+
+    COMPANY = {
+        "name": "INSIGHT NETWORKS",
+        "tagline": "Connecting Today. Powering Tomorrow.",
+        "address_lines": [
+            "Block-B Aashima Royal City,",
+            "Bhopal-462043, Madhya Pradesh, India",
+        ],
+        "phone": "+91 93024 52424",
+        "email": "contact@insightnet.in",
+        "web": "www.insightnet.in",
+    }
+
+    styles = getSampleStyleSheet()
+
+    def P(text, size=9, color=NAVY, bold=False, align=TA_LEFT, leading=None):
+        font = FONT_BOLD if bold else FONT_REGULAR
+        return Paragraph(
+            text,
+            ParagraphStyle(
+                "s", parent=styles["Normal"],
+                fontName=font, fontSize=size, textColor=color,
+                alignment=align, leading=leading or (size * 1.25),
+            ),
+        )
+
+    def money(cents):
+        try:
+            v = int(cents or 0) / 100.0
+        except Exception:
+            return "\u20b90.00"
+        return f"\u20b9{v:,.2f}"
+
+    def _footer(canvas, doc):
+        canvas.saveState()
+        canvas.setStrokeColor(GREY_200)
+        canvas.setLineWidth(0.5)
+        canvas.line(18 * mm, 15 * mm, A4[0] - 18 * mm, 15 * mm)
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(GREY_500)
+        canvas.drawString(
+            18 * mm, 10 * mm,
+            "Account Statement generated by Insight Networks Subscriber Dashboard.",
+        )
+        canvas.drawRightString(
+            A4[0] - 18 * mm, 10 * mm,
+            f"{COMPANY['web']}   |   Page {doc.page}",
+        )
+        canvas.restoreState()
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=18 * mm, rightMargin=18 * mm,
+        topMargin=15 * mm, bottomMargin=22 * mm,
+        title=f"Account Statement — {profile.get('name') or profile.get('username') or 'Subscriber'}",
+        author=COMPANY["name"].title(),
+    )
+
+    story = []
+
+    # HEADER: logo + title
+    logo_path = Path(__file__).parent / "assets" / "logo.png"
+    if logo_path.exists():
+        logo_flow = Image(str(logo_path), width=54 * mm, height=22 * mm)
+        logo_flow.hAlign = "LEFT"
+    else:
+        logo_flow = P(f"<b>{COMPANY['name']}</b>", size=18, color=NAVY, bold=True)
+
+    header_right = [
+        P("<b>ACCOUNT STATEMENT</b>", size=18, color=NAVY, bold=True, align=TA_RIGHT),
+        Spacer(1, 3),
+        P(
+            f"<b>Statement Date:</b>  {datetime.now().strftime('%d-%b-%Y')}<br/>"
+            f"<b>Customer ID:</b>  {profile.get('id') or '-'}<br/>"
+            f"<b>Account No.:</b>  {profile.get('account_no') or '-'}",
+            size=9, color=NAVY, align=TA_RIGHT, leading=13,
+        ),
+    ]
+    header_table = Table([[logo_flow, header_right]], colWidths=[110 * mm, 64 * mm])
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 6))
+
+    # Blue tagline strip
+    tag = Table(
+        [[P(COMPANY["tagline"].upper(), size=8, color=colors.white, bold=True, align=TA_CENTER)]],
+        colWidths=[174 * mm], rowHeights=[7 * mm],
+    )
+    tag.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), BLUE)]))
+    story.append(tag)
+    story.append(Spacer(1, 12))
+
+    # Subscriber summary card
+    subscriber_lines = [
+        P("SUBSCRIBER DETAILS", size=8, color=GREY_500, bold=True),
+        Spacer(1, 3),
+        P(f"<b>{profile.get('name') or profile.get('username') or '-'}</b>", size=11, color=NAVY, bold=True),
+        P(
+            f"Username: {profile.get('username') or '-'}<br/>"
+            f"Email: {profile.get('email') or '-'}<br/>"
+            f"Mobile: {profile.get('mobile1') or '-'}<br/>"
+            f"Package: {profile.get('location_package_name') or '-'}",
+            size=9, color=NAVY, leading=12,
+        ),
+    ]
+    company_lines = [
+        P("SERVICE PROVIDER", size=8, color=GREY_500, bold=True),
+        Spacer(1, 3),
+        P(f"<b>{COMPANY['name']}</b>", size=11, color=NAVY, bold=True),
+        P(
+            "<br/>".join(COMPANY["address_lines"])
+            + f"<br/>Phone: {COMPANY['phone']}<br/>"
+            f"Email: {COMPANY['email']}<br/>Web: {COMPANY['web']}",
+            size=9, color=NAVY, leading=12,
+        ),
+    ]
+    summary_table = Table(
+        [[subscriber_lines, company_lines]],
+        colWidths=[87 * mm, 87 * mm],
+    )
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, 0), LIGHT_BLUE),
+        ("BACKGROUND", (1, 0), (1, 0), GREY_50),
+        ("BOX", (0, 0), (0, 0), 0.5, BLUE),
+        ("BOX", (1, 0), (1, 0), 0.5, GREY_200),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 14))
+
+    # Financial summary tiles
+    total_invoiced = 0
+    for inv in invoices:
+        amt = str(inv.get("amount") or "").replace("\u20b9", "").replace(",", "")
+        try:
+            total_invoiced += float(amt) if amt else 0
+        except Exception:
+            pass
+    total_paid = 0
+    for p in payments:
+        amt = str(p.get("amount") or "").replace("\u20b9", "").replace(",", "")
+        try:
+            total_paid += float(amt) if amt else 0
+        except Exception:
+            pass
+
+    def tile(label, value, color=NAVY):
+        return [
+            P(label.upper(), size=7.5, color=GREY_500, bold=True, align=TA_CENTER),
+            Spacer(1, 3),
+            P(f"<b>{value}</b>", size=14, color=color, bold=True, align=TA_CENTER),
+        ]
+    tiles = Table(
+        [[
+            tile("Total Invoices", str(len(invoices))),
+            tile("Total Payments", str(len(payments))),
+            tile("Amount Invoiced", f"\u20b9{total_invoiced:,.2f}"),
+            tile("Amount Paid", f"\u20b9{total_paid:,.2f}", GREEN),
+        ]],
+        colWidths=[43.5 * mm] * 4,
+    )
+    tiles.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), GREY_50),
+        ("BOX", (0, 0), (-1, -1), 0.5, GREY_200),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, GREY_200),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    story.append(tiles)
+    story.append(Spacer(1, 16))
+
+    # INVOICES section
+    story.append(P("INVOICES", size=12, color=NAVY, bold=True))
+    story.append(Spacer(1, 6))
+
+    inv_header = [
+        P("#", size=8, color=colors.white, bold=True, align=TA_CENTER),
+        P("INVOICE NO", size=8, color=colors.white, bold=True),
+        P("DATE", size=8, color=colors.white, bold=True),
+        P("DUE BY", size=8, color=colors.white, bold=True),
+        P("AMOUNT", size=8, color=colors.white, bold=True, align=TA_RIGHT),
+        P("STATUS", size=8, color=colors.white, bold=True),
+    ]
+    inv_rows = [inv_header]
+    if invoices:
+        for i, inv in enumerate(invoices, 1):
+            inv_rows.append([
+                P(str(i), size=8.5, color=NAVY, align=TA_CENTER),
+                P(str(inv.get("invoice_no") or inv.get("id") or "-"), size=8.5, color=NAVY, bold=True),
+                P(str(inv.get("invoice_date") or "-"), size=8.5, color=NAVY),
+                P(str(inv.get("due_by") or "-"), size=8.5, color=NAVY),
+                P(str(inv.get("amount") or "-"), size=8.5, color=NAVY, bold=True, align=TA_RIGHT),
+                P(
+                    (inv.get("status") or "").replace("_", " ").title(),
+                    size=8, color=GREEN if inv.get("status") == "payment_received" else GREY_500,
+                    bold=True,
+                ),
+            ])
+    else:
+        inv_rows.append([P("No invoices on record.", size=9, color=GREY_500, align=TA_CENTER)] + [""] * 5)
+
+    inv_table = Table(inv_rows, colWidths=[8 * mm, 30 * mm, 30 * mm, 30 * mm, 32 * mm, 44 * mm])
+    inv_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("BOX", (0, 0), (-1, -1), 0.5, GREY_200),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, GREY_200),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, GREY_50]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    story.append(inv_table)
+    story.append(Spacer(1, 16))
+
+    # PAYMENTS section
+    story.append(P("PAYMENT HISTORY", size=12, color=NAVY, bold=True))
+    story.append(Spacer(1, 6))
+
+    pay_header = [
+        P("#", size=8, color=colors.white, bold=True, align=TA_CENTER),
+        P("PAYMENT NO", size=8, color=colors.white, bold=True),
+        P("DATE", size=8, color=colors.white, bold=True),
+        P("AMOUNT", size=8, color=colors.white, bold=True, align=TA_RIGHT),
+        P("MODE", size=8, color=colors.white, bold=True),
+        P("STATUS", size=8, color=colors.white, bold=True),
+    ]
+    pay_rows = [pay_header]
+    if payments:
+        for i, p in enumerate(payments, 1):
+            mode = (p.get("mode_of_payment") or "").replace("_", " ").title() or "-"
+            pay_rows.append([
+                P(str(i), size=8.5, color=NAVY, align=TA_CENTER),
+                P(str(p.get("payment_no") or p.get("id") or "-"), size=8.5, color=NAVY, bold=True),
+                P(str(p.get("payment_date") or "-"), size=8.5, color=NAVY),
+                P(str(p.get("amount") or "-"), size=8.5, color=NAVY, bold=True, align=TA_RIGHT),
+                P(mode, size=8.5, color=NAVY),
+                P(
+                    (p.get("status") or "").title(),
+                    size=8,
+                    color=GREEN if (p.get("status") or "").lower() in ("closed", "received") else GREY_500,
+                    bold=True,
+                ),
+            ])
+    else:
+        pay_rows.append([P("No payments on record.", size=9, color=GREY_500, align=TA_CENTER)] + [""] * 5)
+
+    pay_table = Table(pay_rows, colWidths=[8 * mm, 34 * mm, 26 * mm, 30 * mm, 32 * mm, 44 * mm])
+    pay_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("BOX", (0, 0), (-1, -1), 0.5, GREY_200),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, GREY_200),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, GREY_50]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    story.append(pay_table)
+    story.append(Spacer(1, 16))
+
+    # Contact card
+    story.append(P(
+        f"For any queries about this statement, contact us at <b>{COMPANY['phone']}</b> or write to "
+        f"<b>{COMPANY['email']}</b>. Visit <b>{COMPANY['web']}</b>.",
+        size=9, color=GREY_500, align=TA_CENTER,
+    ))
+
+    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    return buf.getvalue()
 
 
 # ---------------------------------------------------------------------------

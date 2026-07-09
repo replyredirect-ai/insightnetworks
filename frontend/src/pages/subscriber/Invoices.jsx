@@ -71,16 +71,10 @@ export default function Invoices() {
 
   return (
     <div data-testid="invoices-page">
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-[#0A1A33] flex items-center gap-3">
-            <FileText className="text-[#1E88FF]" size={28} />
-            Invoices
-          </h1>
-          <p className="text-slate-600 mt-1">
-            {total > 0 ? `${total} invoice${total === 1 ? "" : "s"} in your account` : "Your billing history"}
-          </p>
-        </div>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+        <p className="text-sm text-slate-600">
+          {total > 0 ? `Showing ${total} invoice${total === 1 ? "" : "s"} in your account` : "Your billing history"}
+        </p>
         <form onSubmit={handleSearch} className="flex items-center gap-2">
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -89,7 +83,7 @@ export default function Invoices() {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search invoice #, amount..."
               data-testid="invoice-search-input"
-              className="pl-9 pr-4 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-[#1E88FF] focus:outline-none w-64"
+              className="pl-9 pr-4 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-[#1E88FF] focus:outline-none w-64 bg-white"
             />
           </div>
         </form>

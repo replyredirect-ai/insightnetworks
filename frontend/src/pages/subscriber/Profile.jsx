@@ -109,14 +109,6 @@ export default function Profile() {
 
   return (
     <div className="max-w-3xl" data-testid="profile-page">
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-[#0A1A33] flex items-center gap-3">
-          <User className="text-[#1E88FF]" size={28} />
-          Profile & Security
-        </h1>
-        <p className="text-slate-600 mt-1">Update your account information and password</p>
-      </div>
-
       {/* Read-only summary */}
       <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-6 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

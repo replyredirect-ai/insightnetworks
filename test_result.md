@@ -538,6 +538,57 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
+      Subscriber Dashboard redesigned per user feedback:
+
+      1. **RENAMED**: Customer Portal → "Subscriber Dashboard" everywhere. All routes moved from
+         /subscriber → /subscriber-dashboard (kept /subscriber redirects for backwards compat).
+      2. **WEBPAGE-STYLE LAYOUT**: The dashboard is now wrapped in the marketing `<Layout>`
+         (Navbar + Footer), so it feels like a full website page matching the site's theme.
+      3. **PROFESSIONAL BANNER**: Each tab shows a `<PageHeader>` banner with the same
+         blue-navy theme, Outfit display font, eyebrow/title/accent/subtitle used elsewhere on
+         the site, and a network-cabling background image.
+      4. **STICKY TAB BAR + USER CHIP** appears below the banner, matching the site's
+         primary blue accent. Tabs: Account Overview / Invoices / Payments / Support Tickets /
+         Profile & Password.
+      5. **ACCOUNT OVERVIEW now shows EVERYTHING**:
+         - Welcome tile with "Download Account Statement" button (blue pill CTA).
+         - 4 status cards (Connection, Package, Balance, Validity).
+         - 3 usage cards (Today / This Month / Total).
+         - 3 financial tiles (Total Invoices, Amount Invoiced, Amount Paid).
+         - Full Invoices table with all 6 rows and per-row PDF download.
+         - Full Payment History table with all 6 payments.
+         - Account Information section.
+      6. **ACCOUNT STATEMENT PDF** — new endpoint /api/subscriber/statement/pdf that generates
+         a comprehensive multi-section PDF:
+         - Header with logo + ACCOUNT STATEMENT title + statement date/customer id/account no.
+         - Blue tagline strip
+         - SUBSCRIBER DETAILS + SERVICE PROVIDER two-column card
+         - 4 financial tiles: Total Invoices, Total Payments, Amount Invoiced, Amount Paid
+         - INVOICES table (all rows, colored status)
+         - PAYMENT HISTORY table (all rows)
+         - Footer with legal note + page number + www.insightnet.in
+         - DejaVu Sans fonts BUNDLED in /app/backend/assets/ so ₹ renders correctly and the
+           PDF works in any deployment (persistent even after container restarts).
+      7. **INVOICE PDF** still uses the previous professional design (full letter-page format
+         with logo, address, GST breakdown, amount-in-words, Terms & Conditions, page numbers).
+      8. **REMOVED**: All references to xceednet/bhopal.insightnet.in from the UI.
+         Tab pages' individual titles removed (banner handles the title).
+
+      Backend files touched: /app/backend/server.py (added statement endpoint + PDF builder),
+      /app/backend/assets/ (bundled DejaVuSans.ttf, DejaVuSans-Bold.ttf, logo.png).
+      Frontend files touched:
+        * /app/frontend/src/App.js — routes moved to /subscriber-dashboard inside Layout
+        * /app/frontend/src/components/SubscriberLayout.jsx — full rewrite (PageHeader + tabs)
+        * /app/frontend/src/pages/subscriber/Overview.jsx — full rewrite with invoices+payments+statement
+        * /app/frontend/src/pages/subscriber/{Invoices,Payments,Tickets,TicketNew,Profile,TicketDetail}.jsx
+          — removed duplicate titles, updated all internal navigation links.
+        * /app/frontend/src/services/xceednetApi.js — added downloadAccountStatement().
+
+      PDF verified visually — logo, ₹ symbol, all sections render perfectly.
+      UI verified visually — banner + tabs + full data tables + statement button all working.
+
+  - agent: "main"
+    message: |
       Phase 2 REDESIGN — Portal refined to be far more impressive per user feedback:
       1. Switched from sidebar to horizontal TAB-STYLE navigation with prominent logo top-left
          and user chip (avatar + name + Online·INS-35 + dropdown) top-right.
