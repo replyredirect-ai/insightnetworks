@@ -538,6 +538,25 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
+      Phase 2 REDESIGN — Portal refined to be far more impressive per user feedback:
+      1. Switched from sidebar to horizontal TAB-STYLE navigation with prominent logo top-left
+         and user chip (avatar + name + Online·INS-35 + dropdown) top-right.
+      2. Removed "Available Packages" section from Overview.
+      3. Removed "Data fetched securely from XceedNet · bhopal.insightnet.in" footer everywhere.
+      4. Invoices + Payments already show all rows (length=100).
+      5. INVOICE PDF fully redesigned into a professional corporate tax invoice:
+         - Embedded Insight Networks logo, blue tagline banner, BILL FROM/BILL TO panels using
+           the real address from site.js (Block-B Aashima Royal City, Bhopal-462043, +91 93024
+           52424, contact@insightnet.in, www.insightnet.in), service period strip, navy-header
+           line items table, GST breakdown, GRAND TOTAL banner, amount in words (Indian numbering),
+           payment status banner (green Received / red Pending), 7-item Terms & Conditions,
+           page-number footer.
+         - Registered DejaVu Sans font — ₹, ✓, →, — Unicode symbols now render correctly.
+         - PDF file grew from 3KB → 555KB (embeds logo + Unicode font subsets). Verified visually.
+      6. Old SubscriberDashboard.jsx deleted (superseded by /subscriber/Overview.jsx).
+
+  - agent: "main"
+    message: |
       Phase 2 complete — full Customer Portal shipped with a sidebar layout and 4 feature areas
       (Invoices + PDF, Payments, Support Tickets, Profile & Change Password).
 

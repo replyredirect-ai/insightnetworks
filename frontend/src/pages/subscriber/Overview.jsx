@@ -63,9 +63,6 @@ export default function Overview() {
   const isOnline = !!data.is_online;
   const packageName = data.location_package_name || "N/A";
   const packageDataLimit = data.location_package_display_data || "Unlimited Data";
-  const availablePackages = Array.isArray(data.available_susbcriber_packages)
-    ? data.available_susbcriber_packages
-    : [];
 
   const daysRemaining = () => {
     if (!data.expires_at) return 0;
@@ -198,57 +195,25 @@ export default function Overview() {
       </div>
 
       {/* Account information */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="bg-white border-2 border-slate-200 rounded-2xl p-6">
-          <h3 className="text-lg font-bold text-[#0A1A33] mb-4 flex items-center gap-2">
-            <User size={20} className="text-[#1E88FF]" />
-            Account Information
-          </h3>
-          <div className="space-y-3">
-            {[
-              ["Username", data.username],
-              ["Account No", data.account_no],
-              ["Email", data.email],
-              ["Mobile", data.mobile1],
-              ["Location", [data.city, data.state].filter(Boolean).join(", ")],
-            ].map(([label, val]) => (
-              <div key={label} className="flex justify-between py-2 border-b border-slate-100 last:border-0">
-                <span className="text-sm text-slate-600">{label}:</span>
-                <span className="text-sm font-semibold text-[#0A1A33] text-right">{val || "\u2014"}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border-2 border-slate-200 rounded-2xl p-6">
-          <h3 className="text-lg font-bold text-[#0A1A33] mb-4 flex items-center gap-2">
-            <Package size={20} className="text-[#1E88FF]" />
-            Available Packages
-          </h3>
-          <div className="space-y-3">
-            {availablePackages.length === 0 && (
-              <p className="text-sm text-slate-500">No additional packages available at the moment.</p>
-            )}
-            {availablePackages.map((pkg) => {
-              const isCurrent = pkg.name?.startsWith(packageName);
-              return (
-                <div
-                  key={pkg.location_package_id}
-                  className={`p-4 rounded-xl border-2 ${isCurrent ? "border-[#1E88FF] bg-blue-50" : "border-slate-200"}`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-[#0A1A33]">{pkg.name}</h4>
-                      <p className="text-xs text-slate-600">
-                        {pkg.bandwidth_down}{pkg.bandwidth_down_unit}bps down \u2022 {pkg.valid_for} {pkg.validity_unit}
-                      </p>
-                    </div>
-                    <span className="text-lg font-bold text-[#1E88FF]">{pkg.price_after_tax}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      <div className="bg-white border-2 border-slate-200 rounded-2xl p-6">
+        <h3 className="text-lg font-bold text-[#0A1A33] mb-4 flex items-center gap-2">
+          <User size={20} className="text-[#1E88FF]" />
+          Account Information
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+          {[
+            ["Username", data.username],
+            ["Account No", data.account_no],
+            ["Email", data.email],
+            ["Mobile", data.mobile1],
+            ["Location", [data.city, data.state].filter(Boolean).join(", ")],
+            ["Status", isOnline ? "Online" : "Offline"],
+          ].map(([label, val]) => (
+            <div key={label} className="flex justify-between py-2 border-b border-slate-100 last:border-0">
+              <span className="text-sm text-slate-600">{label}:</span>
+              <span className="text-sm font-semibold text-[#0A1A33] text-right">{val || "\u2014"}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
