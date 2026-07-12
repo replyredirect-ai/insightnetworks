@@ -190,34 +190,108 @@ export default function Overview() {
 
   return (
     <div className="space-y-8" data-testid="overview-page">
-      {/* Welcome + Download Statement CTA */}
-      <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 lg:p-8 shadow-sm flex flex-col lg:flex-row items-start lg:items-center gap-6">
-        <div className="flex-1">
-          <h2 className="text-2xl lg:text-3xl font-display font-bold text-[#0A1A33]">
-            Welcome back, {data.name || data.username || "Subscriber"}.
-          </h2>
-          <p className="text-slate-600 mt-1.5">
-            Last login {data.last_login_at ? new Date(data.last_login_at).toLocaleString() : "recently"} &middot; Package: <b>{packageName}</b>
-          </p>
+      {/* Premium Welcome Banner with subscriber profile */}
+      <div
+        data-testid="subscriber-welcome-banner"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0A1A33] via-[#0F2847] to-[#1E88FF] text-white shadow-xl"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_20%,rgba(30,136,255,0.35),transparent_55%)]" />
+        <div className="absolute -left-24 -bottom-24 w-72 h-72 rounded-full bg-white/5 blur-3xl" />
+        <div className="relative p-6 lg:p-10">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6 mb-8">
+            {/* KYC / Profile Picture */}
+            <div className="w-20 h-20 lg:w-28 lg:h-28 rounded-2xl overflow-hidden border-2 border-white/25 bg-white/10 backdrop-blur shrink-0 shadow-xl flex items-center justify-center">
+              {data.kyc_photo_url || data.photo_url || data.profile_photo ? (
+                <img
+                  src={data.kyc_photo_url || data.photo_url || data.profile_photo}
+                  alt={data.name || "Subscriber"}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                />
+              ) : (
+                <User size={44} className="text-white/80" />
+              )}
+            </div>
+            {/* Name + status */}
+            <div className="flex-1 min-w-0">
+              <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase ${isOnline ? "bg-emerald-500/25 border border-emerald-400/40 text-emerald-100" : "bg-slate-500/25 border border-slate-400/30 text-slate-200"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+                {isOnline ? "Online" : "Offline"}
+              </span>
+              <h2 className="mt-3 font-display text-2xl lg:text-4xl font-bold truncate">
+                Welcome back, <span className="text-[#7CB9FF]">{data.name || data.username || "Subscriber"}</span>
+              </h2>
+              <p className="text-blue-100/80 mt-2">
+                Username: <span className="font-semibold text-white">{data.username || "—"}</span>
+                {" "}&middot;{" "}
+                Last login {data.last_login_at ? new Date(data.last_login_at).toLocaleString() : "recently"}
+              </p>
+            </div>
+            {/* Statement CTA */}
+            <button
+              onClick={handleDownloadStatement}
+              disabled={downloadingStatement}
+              data-testid="download-statement-button"
+              className="inline-flex items-center gap-2 bg-white text-[#0A1A33] hover:bg-blue-50 disabled:opacity-60 font-semibold px-5 py-3 rounded-full shadow-lg transition-all whitespace-nowrap self-start lg:self-auto"
+            >
+              {downloadingStatement ? (
+                <><RefreshCw size={18} className="animate-spin" /> Preparing PDF…</>
+              ) : (
+                <><Download size={18} /> Download Statement</>
+              )}
+            </button>
+          </div>
+
+          {/* Meta grid: Package, Validity, IP, Balance */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+            {[
+              { icon: Package, label: "Current Package", value: packageName },
+              { icon: Calendar, label: "Valid Till", value: data.expires_at ? new Date(data.expires_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—", sub: `${daysRemaining()} days left` },
+              { icon: Wifi, label: "Current IP", value: ipAddress },
+              { icon: IndianRupee, label: "Account Balance", value: `₹${parseFloat(data.balance || 0).toFixed(2)}` },
+            ].map((m) => {
+              const Icon = m.icon;
+              return (
+                <div key={m.label} className="bg-white/10 backdrop-blur border border-white/15 rounded-xl p-3 lg:p-4">
+                  <div className="flex items-center gap-2 text-blue-200 text-[10px] font-semibold uppercase tracking-widest mb-1">
+                    <Icon size={12} /> {m.label}
+                  </div>
+                  <p className="text-white font-bold text-sm lg:text-base truncate">{m.value}</p>
+                  {m.sub && <p className="text-blue-200 text-[11px] mt-0.5">{m.sub}</p>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Quick access nav */}
+          <div className="mt-6 pt-6 border-t border-white/10">
+            <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mb-3">Quick Access</p>
+            <div className="grid grid-cols-4 md:grid-cols-7 gap-2 lg:gap-3">
+              {[
+                { icon: Activity, label: "Dashboard", to: "/dashboard" },
+                { icon: TrendingUp, label: "Overview", to: "/dashboard" },
+                { icon: FileText, label: "Invoices", to: "/dashboard/invoices" },
+                { icon: CreditCard, label: "Payments", to: "/dashboard/payments" },
+                { icon: CheckCircle2, label: "Tickets", to: "/dashboard/tickets" },
+                { icon: User, label: "Profile", to: "/dashboard/profile" },
+                { icon: RefreshCw, label: "Change Pwd", to: "/dashboard/change-password" },
+              ].map((q) => {
+                const Icon = q.icon;
+                return (
+                  <Link
+                    key={q.label}
+                    to={q.to}
+                    data-testid={`subscriber-quick-${q.label.toLowerCase().replace(/\s+/g,'-')}`}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 transition-all group"
+                  >
+                    <Icon size={20} className="text-blue-100 group-hover:text-white transition-colors" />
+                    <span className="text-[11px] font-semibold text-blue-100 group-hover:text-white truncate w-full text-center">{q.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        <button
-          onClick={handleDownloadStatement}
-          disabled={downloadingStatement}
-          data-testid="download-statement-button"
-          className="inline-flex items-center gap-2 bg-[#1E88FF] hover:bg-[#156cd1] disabled:bg-slate-400 text-white font-semibold px-5 py-3 rounded-full shadow-lg shadow-[#1E88FF]/25 hover:shadow-xl transition-all whitespace-nowrap"
-        >
-          {downloadingStatement ? (
-            <>
-              <RefreshCw size={18} className="animate-spin" />
-              Preparing PDF...
-            </>
-          ) : (
-            <>
-              <Download size={18} />
-              Download Account Statement
-            </>
-          )}
-        </button>
       </div>
 
       {/* Recharge / Top-up */}

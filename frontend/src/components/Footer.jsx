@@ -7,7 +7,7 @@ export const Footer = () => {
     <footer data-testid="site-footer" className="bg-[#051024] text-slate-300 pt-20 pb-8 relative overflow-hidden">
       <div className="absolute inset-0 glow-radial opacity-60 pointer-events-none" />
       <div className="container mx-auto px-6 lg:px-8 relative">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12">
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl p-5 inline-block">
               <Logo showTagline={true} size="h-28" />
@@ -37,6 +37,17 @@ export const Footer = () => {
               <li>Security Solutions</li>
               <li>Cloud Services</li>
               <li>24/7 Support</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-display text-white text-sm font-semibold tracking-wider uppercase mb-5">Legal</h4>
+            <ul className="space-y-3 text-sm">
+              <li><Link data-testid="footer-link-privacy" to="/privacy" className="hover:text-[#1E88FF] transition-colors">Privacy Policy</Link></li>
+              <li><Link data-testid="footer-link-terms" to="/terms" className="hover:text-[#1E88FF] transition-colors">Terms of Service</Link></li>
+              <li><Link data-testid="footer-link-refund" to="/refund" className="hover:text-[#1E88FF] transition-colors">Refund &amp; Cancellation</Link></li>
+              <li><Link data-testid="footer-link-industries" to="/industries" className="hover:text-[#1E88FF] transition-colors">Industries</Link></li>
+              <li><Link data-testid="footer-link-partners" to="/technology-partners" className="hover:text-[#1E88FF] transition-colors">Technology Partners</Link></li>
             </ul>
           </div>
 

@@ -15,6 +15,9 @@ import TechnologyPartners from "@/pages/TechnologyPartners";
 import Industries from "@/pages/Industries";
 import LeasedLine from "@/pages/services/LeasedLine";
 import WISP from "@/pages/services/WISP";
+import Privacy from "@/pages/legal/Privacy";
+import Terms from "@/pages/legal/Terms";
+import Refund from "@/pages/legal/Refund";
 
 // Subscriber Portal (with sidebar layout)
 import SubscriberLayout from "@/components/SubscriberLayout";
@@ -42,6 +45,9 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/technology-partners" element={<TechnologyPartners />} />
             <Route path="/industries" element={<Industries />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/refund" element={<Refund />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/customer-portal" element={<Dashboard />} />
             <Route path="/subscriber-login" element={<SubscriberLogin />} />

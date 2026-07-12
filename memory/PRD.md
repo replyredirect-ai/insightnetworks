@@ -4,54 +4,59 @@
 Continued from GitHub repo `replyredirect-ai/insightnetworks` branch **Final** (commit `ea99c2b`).
 
 ## Original Problem Statement
-Full marketing website + subscriber/admin portal for Insight Networks (ISP based in Bhopal, MP, India). Tagline: **"CONNECTING TODAY. POWERING TOMORROW."** Hero: **"Smart Networks. Stronger Business. Better Tomorrow."**
+Marketing website + subscriber/admin portal for Insight Networks (ISP, Bhopal, MP, India).
+Tagline: **"CONNECTING TODAY. POWERING TOMORROW."**
+Hero: **"Smart Networks. Stronger Business. Better Tomorrow."**
 
 ## Architecture
 - **Frontend**: React 19 + React Router v7 + Tailwind + Shadcn UI + lucide-react + sonner
 - **Backend**: FastAPI proxy → XceedNet ISP platform (`admin.insightnet.in` / `bhopal.insightnet.in`)
 - **Database**: MongoDB (ticket replies, status checks, payment sessions)
-- **Payment Gateway**: CCAvenue (env-based, disabled if keys missing)
-- **PDF Generation**: ReportLab (invoices + account statements)
+- **Payment Gateway**: CCAvenue (production keys configured)
+- **PDF Generation**: ReportLab + pypng-backed QR
 
-## Marketing Site (`/`, `/services`, `/plans`, `/about`, `/contact`, `/industries`, `/technology-partners`, `/services/leased-line`, `/services/wisp`)
-- Sticky glass navbar + dark footer
-- Hero with fiber-optic bg, live-network glass card, stats strip
-- Services grid, plans grid + comparison matrix, about + values, contact form (mocked)
+## Environment (backend/.env — all configured)
+- Mongo: `MONGO_URL`, `DB_NAME`, `CORS_ORIGINS`
+- XceedNet: `XCEEDNET_AUTH_BASE_URL`, `XCEEDNET_DEFAULT_SUBSCRIBER_DOMAIN`, `XCEEDNET_DEFAULT_ADMIN_LOCATION`, `XCEEDNET_SERVICE_EMAIL` (`insightnetworks@hotmail.com`), `XCEEDNET_SERVICE_PASSWORD`
+- CCAvenue: `CCAVENUE_MERCHANT_ID=1936794`, `_ACCESS_CODE`, `_WORKING_KEY`, `_ENVIRONMENT=production`, `_REDIRECT_URL`, `_CANCEL_URL`, `FRONTEND_BASE_URL`
 
-## Subscriber Portal (`/subscriber-login` → `/dashboard/*`)
-- Login accepts username or mobile number (mobile resolved via service admin lookup)
-- Overview, Invoices (list + PDF download), Payments, Profile edit + change password
-- Support Tickets (list, create, detail with replies stored in Mongo)
-- Account Statement PDF (comprehensive multi-section report)
-- CCAvenue-based invoice payment + recharge flow (`/api/payments/initiate`, `/payments/callback`, `/payment-result`)
+## Routes
+### Marketing
+- `/`, `/about`, `/services`, `/services/leased-line`, `/services/wisp`, `/plans`, `/industries`, `/technology-partners`, `/contact`
+- **NEW Legal**: `/privacy`, `/terms`, `/refund`
 
-## Admin Portal (`/admin-login`, `/admin`)
-- Location dashboard stats
-- Subscriber list search
-- Package list
+### Portals
+- `/subscriber-login` → `/dashboard/*` (Overview, Invoices, Payments, Tickets, Profile, Change Password)
+- `/admin-login` → `/admin`
 
-## Backend Endpoints (highlights)
-- Auth: `POST /api/subscriber/login`, `POST /api/admin/login`
-- Subscriber: `/subscriber/{dashboard,profile,invoices,payments,tickets,statement/pdf,change-password}`
-- Admin: `/admin/{dashboard,locations}`, `/subscribers/list`, `/packages/list`
-- Payments: `/payments/initiate`, `/payments/callback`, `/payments/status/{order_id}`
-- Health: `GET /api/`, `/api/status`
+## Changes Made (2026-01-12)
+### Bug Fixes
+1. **Invoice PDF download** — missing `pypng` dependency (needed by `qrcode` for UPI QR embed) caused 500 errors. Fixed: installed `pypng==0.20220715.0` and pinned in `requirements.txt`. Verified end-to-end: real invoice `INV-57` (id 5234865) returns 562 KB `%PDF-1.4` file.
+2. **Admin logout redirect** — was routing to `/dashboard`; corrected to `/admin-login`.
 
-## Environment Variables (backend)
-- `MONGO_URL`, `DB_NAME`, `CORS_ORIGINS` (already set)
-- Required for full functionality (optional in preview):
-  - `XCEEDNET_AUTH_BASE_URL`, `XCEEDNET_DEFAULT_SUBSCRIBER_DOMAIN`, `XCEEDNET_DEFAULT_ADMIN_LOCATION`
-  - `XCEEDNET_SERVICE_EMAIL`, `XCEEDNET_SERVICE_PASSWORD` (service admin for mobile-lookup + admin-scoped fetches)
-  - `CCAVENUE_MERCHANT_ID`, `CCAVENUE_ACCESS_CODE`, `CCAVENUE_WORKING_KEY`, `CCAVENUE_ENVIRONMENT`, `CCAVENUE_REDIRECT_URL`, `CCAVENUE_CANCEL_URL`, `FRONTEND_BASE_URL`
+### New Features
+1. **Legal pages** — `/privacy`, `/terms`, `/refund` with 6 sections each, Grievance Officer contact, CCAvenue/GST-aware content.
+2. **Footer** — expanded from 4 to 5 columns with dedicated "Legal" column linking to Privacy/Terms/Refund/Industries/Partners.
+3. **Admin Dashboard welcome banner** — premium gradient banner with: role, location, last login, current date/time meta cards + 8-item quick-access nav (Dashboard, Subscribers, Packages, Billing, Reports, Tickets, Settings, Profile). Logout moved into banner.
+4. **Subscriber Dashboard welcome banner** — profile picture (KYC/photo_url fallback), online/offline pill, name, username, last login + 4 meta cards (Package / Valid Till / Current IP / Balance) + 7-item quick-access nav (Dashboard, Overview, Invoices, Payments, Tickets, Profile, Change Pwd).
 
-## Current State (2026-01-12)
-- Codebase restored from `Final` branch and running
-- Backend healthy at `/api/` (returns `{"message":"Insight Networks API Proxy"}`)
-- Frontend loads and renders marketing site correctly
-- Python deps installed via `--no-deps` due to litellm URL-pinned conflict; all imports resolve
+### Verified E2E (backend + XceedNet live)
+- Admin login → JWT
+- Dashboard: 60 subscribers, 35 online, ₹3,03,247.82 invoices, 4 active tickets
+- Locations: 5 · Packages: 26 · Subscribers list: 60 real records
+- Invoice PDF download: 562 KB valid PDF
 
 ## Backlog / Next
-- Await user's next feature request or bug report
-- P1: Set real XceedNet + CCAvenue credentials in `/app/backend/.env` to enable authenticated portals
-- P2: Testimonials, coverage-area map, WhatsApp click-to-chat, blog
-- P2: SEO meta + sitemap.xml + Open Graph images
+### P1 (from user's Phase-5-plus request)
+- **Invoice PDF redesign** — match the provided sample invoice image (currently the existing design is close but not pixel-identical to the reference)
+- **Account Statement redesign** — reuse invoice branding + opening/closing balance calculation
+- **Print action** on invoices/statements (window.print with styled print CSS)
+- **Additional service detail pages** — Fiber Connectivity, Network Solutions, Security Solutions, Cloud Services, 24/7 Support (currently only Leased Line + WISP)
+- **Skeleton loaders** replacing the current spinner-only loading states
+- **Dark mode** toggle (feasibility)
+- Wire up "Add / Edit / Delete Subscriber" buttons on admin dashboard (currently inert)
+
+### P2
+- Testimonials, coverage-area map, WhatsApp click-to-chat button
+- SEO meta + sitemap.xml + Open Graph images
+- Blog / news section

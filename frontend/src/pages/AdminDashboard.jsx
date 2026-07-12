@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Users, Wifi, Package, TrendingUp, AlertCircle, CheckCircle,
-  Search, Plus, LogOut, RefreshCw, Edit, Trash2, DollarSign
+  Search, Plus, LogOut, RefreshCw, Edit, Trash2, DollarSign,
+  Shield, MapPin, Clock, Calendar, LayoutDashboard, FileText,
+  BarChart3, LifeBuoy, Settings, User as UserIcon,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import xceednetApi from "../services/xceednetApi";
@@ -147,27 +149,106 @@ export default function AdminDashboard() {
   return (
     <div data-testid="admin-dashboard-page">
       <PageHeader
-        eyebrow="Admin Dashboard"
-        title="Location Management"
-        accent="Console"
-        subtitle="Monitor subscribers, manage packages, and oversee network operations."
+        eyebrow="ADMIN CONSOLE"
+        title="Modern Network"
+        accent="Operations Centre"
+        subtitle="Monitor subscribers, manage packages, and oversee network operations from a single glass-pane."
         backgroundImage={DASHBOARD_BG}
       />
 
       <section className="container mx-auto px-6 lg:px-8 py-12">
-        {/* Top Actions */}
+        {/* Admin Welcome Banner */}
+        <div
+          data-testid="admin-welcome-banner"
+          className="relative overflow-hidden rounded-3xl mb-10 bg-gradient-to-br from-[#0A1A33] via-[#0F2847] to-[#1E88FF] text-white shadow-xl"
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(30,136,255,0.35),transparent_50%)]" />
+          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/5 blur-2xl" />
+          <div className="relative p-6 lg:p-10">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6 lg:gap-10 mb-8">
+              {/* Avatar */}
+              <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-2xl bg-white/10 backdrop-blur border-2 border-white/20 flex items-center justify-center shrink-0 shadow-lg">
+                <Shield size={40} className="text-white" />
+              </div>
+              {/* Admin info */}
+              <div className="flex-1">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold tracking-wider uppercase text-blue-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Session
+                </span>
+                <h2 className="mt-3 font-display text-2xl lg:text-4xl font-bold">
+                  Welcome back, <span className="text-[#7CB9FF]">Administrator</span>
+                </h2>
+                <p className="text-blue-100/80 mt-2 max-w-2xl">
+                  You&apos;re signed in to the Insight Networks admin console for {dashboardData?.location_name || "Bhopal"}. Monitor subscribers, manage packages, review tickets, and keep the network humming.
+                </p>
+              </div>
+              {/* Logout (moved into banner) */}
+              <button
+                onClick={handleLogout}
+                data-testid="admin-logout-button"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 border border-white/20 hover:bg-white/20 rounded-xl text-sm font-semibold transition-colors self-start lg:self-auto"
+              >
+                <LogOut size={16} /> Logout
+              </button>
+            </div>
+
+            {/* Admin meta grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
+              {[
+                { icon: Shield, label: "Role", value: "Location Admin" },
+                { icon: MapPin, label: "Location", value: dashboardData?.location_name || "Bhopal" },
+                { icon: Clock, label: "Last Login", value: new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) },
+                { icon: Calendar, label: "Today", value: new Date().toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" }) },
+              ].map((m) => {
+                const Icon = m.icon;
+                return (
+                  <div key={m.label} className="bg-white/10 backdrop-blur border border-white/15 rounded-xl p-3 lg:p-4">
+                    <div className="flex items-center gap-2 text-blue-200 text-[10px] font-semibold uppercase tracking-widest mb-1">
+                      <Icon size={12} /> {m.label}
+                    </div>
+                    <p className="text-white font-semibold text-sm lg:text-base truncate">{m.value}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Quick access */}
+            <div className="mt-6 pt-6 border-t border-white/10">
+              <p className="text-blue-200 text-[10px] font-semibold uppercase tracking-widest mb-3">Quick Access</p>
+              <div className="grid grid-cols-4 md:grid-cols-8 gap-2 lg:gap-3">
+                {[
+                  { icon: LayoutDashboard, label: "Dashboard" },
+                  { icon: Users, label: "Subscribers" },
+                  { icon: Package, label: "Packages" },
+                  { icon: DollarSign, label: "Billing" },
+                  { icon: BarChart3, label: "Reports" },
+                  { icon: LifeBuoy, label: "Tickets" },
+                  { icon: Settings, label: "Settings" },
+                  { icon: UserIcon, label: "Profile" },
+                ].map((q) => {
+                  const Icon = q.icon;
+                  return (
+                    <button
+                      key={q.label}
+                      data-testid={`quick-${q.label.toLowerCase()}`}
+                      className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 transition-all group"
+                    >
+                      <Icon size={20} className="text-blue-100 group-hover:text-white transition-colors" />
+                      <span className="text-[11px] font-semibold text-blue-100 group-hover:text-white truncate w-full text-center">{q.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-bold text-[#0A1A33]">Dashboard Overview</h2>
             <p className="text-slate-600 mt-1">Real-time network statistics and subscriber metrics</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 px-4 py-2 border-2 border-slate-300 text-slate-700 hover:border-red-500 hover:text-red-500 rounded-lg transition-colors"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
         </div>
 
         {/* Statistics Cards */}
