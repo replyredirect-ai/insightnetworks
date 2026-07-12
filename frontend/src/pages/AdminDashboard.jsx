@@ -79,7 +79,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     xceednetApi.clearAuth();
-    navigate('/dashboard');
+    navigate('/admin-login');
   };
 
   const getStatusColor = (status) => {
