@@ -1,56 +1,57 @@
-# Insight Networks — Marketing Website PRD
+# Insight Networks — Product Requirements Document
+
+## Source
+Continued from GitHub repo `replyredirect-ai/insightnetworks` branch **Final** (commit `ea99c2b`).
 
 ## Original Problem Statement
-Build a full marketing website from the provided brochure (Insight Networks — ISP based in Bhopal, MP, India). Tagline: "CONNECTING TODAY. POWERING TOMORROW." Hero: "Smart Networks. Stronger Business. Better Tomorrow."
-
-## User Choices (locked)
-- Static marketing site (no backend) — contact form is mocked client-side
-- Multi-page routes (Home, Services, Plans, About, Contact)
-- Plans display "Contact for Pricing" (no numeric prices)
-- No 3rd-party email integration
-- Logo: styled text-based placeholder (real logo file to be provided later)
+Full marketing website + subscriber/admin portal for Insight Networks (ISP based in Bhopal, MP, India). Tagline: **"CONNECTING TODAY. POWERING TOMORROW."** Hero: **"Smart Networks. Stronger Business. Better Tomorrow."**
 
 ## Architecture
-- Frontend: React 19 + React Router v7 + Tailwind + Shadcn UI components (where applicable) + lucide-react icons + sonner for toasts
-- No backend modifications — original FastAPI server retained
-- Single shared Layout (Navbar + Footer) wrapping all routes
+- **Frontend**: React 19 + React Router v7 + Tailwind + Shadcn UI + lucide-react + sonner
+- **Backend**: FastAPI proxy → XceedNet ISP platform (`admin.insightnet.in` / `bhopal.insightnet.in`)
+- **Database**: MongoDB (ticket replies, status checks, payment sessions)
+- **Payment Gateway**: CCAvenue (env-based, disabled if keys missing)
+- **PDF Generation**: ReportLab (invoices + account statements)
 
-## Brand
-- Primary: `#1E88FF` (electric blue)
-- Dark: `#0A1A33` (navy)
-- Surface: `#FFFFFF` / `#F4F7FB`
-- Fonts: Outfit (display) + IBM Plex Sans (body)
+## Marketing Site (`/`, `/services`, `/plans`, `/about`, `/contact`, `/industries`, `/technology-partners`, `/services/leased-line`, `/services/wisp`)
+- Sticky glass navbar + dark footer
+- Hero with fiber-optic bg, live-network glass card, stats strip
+- Services grid, plans grid + comparison matrix, about + values, contact form (mocked)
 
-## Implemented (2026-02)
-- Logo component (styled "insight NETWORKS" with arrow accent)
-- Sticky glass Navbar with mobile hamburger
-- Dark Footer with quick links, services list, contact info
-- Home page: hero with fiber-optic image, stats strip, services preview (6 cards), plans preview, CTA banner
-- Services page: detail grid with numbered cards (6 services)
-- Plans page: 3 plan cards + feature comparison matrix
-- About page: story section, values, "by the numbers" band with city skyline
-- Contact page: form with success toast (mocked), info cards (tel/mailto/web links), embedded Google Map
-- Page-level fade transitions
-- Data-testid on all interactive elements
-- Tested via testing_agent_v3 — 33/33 frontend checks pass
+## Subscriber Portal (`/subscriber-login` → `/dashboard/*`)
+- Login accepts username or mobile number (mobile resolved via service admin lookup)
+- Overview, Invoices (list + PDF download), Payments, Profile edit + change password
+- Support Tickets (list, create, detail with replies stored in Mongo)
+- Account Statement PDF (comprehensive multi-section report)
+- CCAvenue-based invoice payment + recharge flow (`/api/payments/initiate`, `/payments/callback`, `/payment-result`)
 
-## Pages
-- `/` Home
-- `/services` Services
-- `/plans` Plans
-- `/about` About
-- `/contact` Contact (mocked form)
+## Admin Portal (`/admin-login`, `/admin`)
+- Location dashboard stats
+- Subscriber list search
+- Package list
 
-## Backlog (P1/P2)
-- P1: Replace placeholder text logo with real logo image when user provides
-- P1: Wire up contact form to a real backend + email notification (Resend/SendGrid) if user opts in later
-- P2: Add testimonials / case studies section
-- P2: Add coverage area map (Bhopal & MP cities served)
-- P2: Add live chat / WhatsApp click-to-chat integration
-- P2: Blog / news section
-- P2: SEO meta tags + sitemap.xml + Open Graph images per page
+## Backend Endpoints (highlights)
+- Auth: `POST /api/subscriber/login`, `POST /api/admin/login`
+- Subscriber: `/subscriber/{dashboard,profile,invoices,payments,tickets,statement/pdf,change-password}`
+- Admin: `/admin/{dashboard,locations}`, `/subscribers/list`, `/packages/list`
+- Payments: `/payments/initiate`, `/payments/callback`, `/payments/status/{order_id}`
+- Health: `GET /api/`, `/api/status`
 
-## Next Tasks
-- Await user feedback on look & feel
-- Receive logo asset from user → swap into `src/components/Logo.jsx`
-- Optional: enable backend-stored contact form submissions
+## Environment Variables (backend)
+- `MONGO_URL`, `DB_NAME`, `CORS_ORIGINS` (already set)
+- Required for full functionality (optional in preview):
+  - `XCEEDNET_AUTH_BASE_URL`, `XCEEDNET_DEFAULT_SUBSCRIBER_DOMAIN`, `XCEEDNET_DEFAULT_ADMIN_LOCATION`
+  - `XCEEDNET_SERVICE_EMAIL`, `XCEEDNET_SERVICE_PASSWORD` (service admin for mobile-lookup + admin-scoped fetches)
+  - `CCAVENUE_MERCHANT_ID`, `CCAVENUE_ACCESS_CODE`, `CCAVENUE_WORKING_KEY`, `CCAVENUE_ENVIRONMENT`, `CCAVENUE_REDIRECT_URL`, `CCAVENUE_CANCEL_URL`, `FRONTEND_BASE_URL`
+
+## Current State (2026-01-12)
+- Codebase restored from `Final` branch and running
+- Backend healthy at `/api/` (returns `{"message":"Insight Networks API Proxy"}`)
+- Frontend loads and renders marketing site correctly
+- Python deps installed via `--no-deps` due to litellm URL-pinned conflict; all imports resolve
+
+## Backlog / Next
+- Await user's next feature request or bug report
+- P1: Set real XceedNet + CCAvenue credentials in `/app/backend/.env` to enable authenticated portals
+- P2: Testimonials, coverage-area map, WhatsApp click-to-chat, blog
+- P2: SEO meta + sitemap.xml + Open Graph images
