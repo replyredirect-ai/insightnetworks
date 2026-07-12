@@ -1,5 +1,8 @@
 // XceedNet API Service - Communicates with FastAPI backend proxy which in turn talks to XceedNet.
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// BACKEND_URL is optional. On Emergent Preview it is set via REACT_APP_BACKEND_URL
+// (external Kubernetes ingress). On Vercel we leave it empty so requests use the
+// current origin ("/api/...") and vercel.json rewrites proxy them to the backend.
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 
 // Default location subdomain for subscribers (can be overridden by login response).
 const DEFAULT_SUBSCRIBER_DOMAIN = 'bhopal.insightnet.in';
