@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, Download, RefreshCw, Search, IndianRupee, CreditCard } from "lucide-react";
+import { FileText, Download, RefreshCw, Search, IndianRupee, CreditCard, Printer } from "lucide-react";
 import xceednetApi from "../../services/xceednetApi";
 
 function StatusPill({ status }) {
@@ -28,6 +28,7 @@ export default function Invoices() {
   const [error, setError] = useState(null);
   const [q, setQ] = useState("");
   const [downloadingId, setDownloadingId] = useState(null);
+  const [printingId, setPrintingId] = useState(null);
   const [payingId, setPayingId] = useState(null);
 
   const fetchInvoices = async (search = "") => {
@@ -67,6 +68,18 @@ export default function Invoices() {
       setError(err.message || "Failed to download invoice PDF");
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handlePrint = async (inv) => {
+    setPrintingId(inv.id);
+    try {
+      await xceednetApi.printInvoicePdf(inv.id);
+    } catch (err) {
+      setError(err.message || "Failed to open print dialog");
+    } finally {
+      // Reset after a moment — printing happens in background iframe
+      setTimeout(() => setPrintingId(null), 1200);
     }
   };
 
@@ -182,6 +195,19 @@ export default function Invoices() {
                             <Download size={14} />
                           )}
                           PDF
+                        </button>
+                        <button
+                          onClick={() => handlePrint(inv)}
+                          disabled={printingId === inv.id}
+                          data-testid={`print-invoice-${inv.id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-slate-300 text-slate-700 hover:border-[#0A1A33] hover:bg-[#0A1A33] hover:text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {printingId === inv.id ? (
+                            <RefreshCw size={14} className="animate-spin" />
+                          ) : (
+                            <Printer size={14} />
+                          )}
+                          Print
                         </button>
                       </div>
                     </td>

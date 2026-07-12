@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Wifi, CreditCard, Package, Calendar, Download, Upload, Activity, Clock,
   RefreshCw, FileText, ArrowRight, User, IndianRupee, CheckCircle2, TrendingUp,
-  Wallet, Plus,
+  Wallet, Plus, Printer,
 } from "lucide-react";
 import xceednetApi from "../../services/xceednetApi";
 
@@ -76,6 +76,18 @@ export default function Overview() {
       setError(err.message || "Failed to download statement.");
     } finally {
       setDownloadingStatement(false);
+    }
+  };
+
+  const [printingStatement, setPrintingStatement] = useState(false);
+  const handlePrintStatement = async () => {
+    setPrintingStatement(true);
+    try {
+      await xceednetApi.printAccountStatement();
+    } catch (err) {
+      setError(err.message || "Failed to open print dialog.");
+    } finally {
+      setTimeout(() => setPrintingStatement(false), 1200);
     }
   };
 
@@ -227,19 +239,33 @@ export default function Overview() {
                 Last login {data.last_login_at ? new Date(data.last_login_at).toLocaleString() : "recently"}
               </p>
             </div>
-            {/* Statement CTA */}
-            <button
-              onClick={handleDownloadStatement}
-              disabled={downloadingStatement}
-              data-testid="download-statement-button"
-              className="inline-flex items-center gap-2 bg-white text-[#0A1A33] hover:bg-blue-50 disabled:opacity-60 font-semibold px-5 py-3 rounded-full shadow-lg transition-all whitespace-nowrap self-start lg:self-auto"
-            >
-              {downloadingStatement ? (
-                <><RefreshCw size={18} className="animate-spin" /> Preparing PDF…</>
-              ) : (
-                <><Download size={18} /> Download Statement</>
-              )}
-            </button>
+            {/* Statement actions */}
+            <div className="flex flex-col sm:flex-row gap-2 self-start lg:self-auto">
+              <button
+                onClick={handleDownloadStatement}
+                disabled={downloadingStatement}
+                data-testid="download-statement-button"
+                className="inline-flex items-center gap-2 bg-white text-[#0A1A33] hover:bg-blue-50 disabled:opacity-60 font-semibold px-5 py-3 rounded-full shadow-lg transition-all whitespace-nowrap"
+              >
+                {downloadingStatement ? (
+                  <><RefreshCw size={18} className="animate-spin" /> Preparing…</>
+                ) : (
+                  <><Download size={18} /> Download</>
+                )}
+              </button>
+              <button
+                onClick={handlePrintStatement}
+                disabled={printingStatement}
+                data-testid="print-statement-button"
+                className="inline-flex items-center gap-2 bg-white/10 border border-white/25 text-white hover:bg-white/20 disabled:opacity-60 font-semibold px-5 py-3 rounded-full transition-all whitespace-nowrap"
+              >
+                {printingStatement ? (
+                  <><RefreshCw size={18} className="animate-spin" /> Opening…</>
+                ) : (
+                  <><Printer size={18} /> Print</>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Meta grid: Package, Validity, IP, Balance */}

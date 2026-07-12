@@ -165,6 +165,72 @@ class XceedNetAPI {
     window.URL.revokeObjectURL(url);
   }
 
+  async printInvoicePdf(id) {
+    // Fetch PDF, open in a hidden iframe and invoke the browser print dialog.
+    const headers = {};
+    if (this.token) headers['Authentication'] = this.token;
+    if (this.locationDomain) headers['X-Location-Domain'] = this.locationDomain;
+    const response = await fetch(`${BACKEND_URL}/api/subscriber/invoices/${id}/pdf`, {
+      method: 'GET',
+      headers,
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load invoice for printing (${response.status})`);
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch {
+        // Fallback: open the PDF in a new tab so the user can print manually
+        window.open(url, '_blank');
+      }
+    };
+    // Clean up after ~60s
+    setTimeout(() => {
+      try { document.body.removeChild(iframe); } catch { /* noop */ }
+      window.URL.revokeObjectURL(url);
+    }, 60000);
+  }
+
+  async printAccountStatement() {
+    const headers = {};
+    if (this.token) headers['Authentication'] = this.token;
+    if (this.locationDomain) headers['X-Location-Domain'] = this.locationDomain;
+    const response = await fetch(`${BACKEND_URL}/api/subscriber/statement/pdf`, {
+      method: 'GET',
+      headers,
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load statement for printing (${response.status})`);
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+      catch { window.open(url, '_blank'); }
+    };
+    setTimeout(() => {
+      try { document.body.removeChild(iframe); } catch { /* noop */ }
+      window.URL.revokeObjectURL(url);
+    }, 60000);
+  }
+
   async downloadAccountStatement(filename) {
     const headers = {};
     if (this.token) headers['Authentication'] = this.token;

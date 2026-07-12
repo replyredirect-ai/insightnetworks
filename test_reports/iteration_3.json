@@ -1,0 +1,39 @@
+{
+  "summary": "Frontend-only Playwright regression run against preview URL. All 7 requested features PASS: marketing homepage hero renders 'Smart Networks / Stronger Business / Better Tomorrow', /privacy /terms /refund legal pages load with correct titles + Grievance Officer block, Footer Legal column exposes clickable Privacy/Terms/Refund links (navigation verified), admin login with insightnetworks@hotmail.com / Cisco@12345 lands on /admin-dashboard, premium welcome banner shows Shield icon + 'Welcome back, Administrator' greeting + 4 meta cards (Role=Location Admin, Location=Bhopal, Last Login=12 Jul 11:46 am, Today=Sun, 12 Jul) + 8 quick-access buttons + in-banner Logout, KPI cards show live XceedNet data (Total=60, Online=39, Invoices=₹3,03,247.82, Tickets=4), and Logout now correctly clears xceednet_token/user_type and redirects to /admin-login (fix from iteration_2 verified).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_3.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminDashboard.jsx: 'Balance' column in the subscriber table still renders '—' (hardcoded, unchanged from iter_2). Wire to a subscriber balance field or drop the column.",
+    "AdminDashboard.jsx: 'Add Subscriber', 'Edit', and 'Delete' action buttons in the Subscriber Management section still have no onClick handlers (unchanged from iter_2). Inert buttons are misleading.",
+    "AdminDashboard.jsx (line 200): 'Last Login' meta card uses new Date().toLocaleString() on every render, so the value reflects the current tab time, not the actual last-login timestamp from the auth response. Persist and display the real login-time from the JWT/session.",
+    "AdminDashboard.jsx (line 199): 'Location' meta card falls back to hardcoded 'Bhopal'. When dashboardData.location_name is missing/loading, it will still show Bhopal — hide the card or show a skeleton instead.",
+    "AdminLogin.jsx: error banner still has no data-testid (recurring from iter_2). Add data-testid='login-error' for reliable failure-path assertions.",
+    "AdminDashboard.jsx (lines 222-228): Quick-access buttons render but have no onClick / no navigation — they are inert. Wire them to routes (Dashboard/Subscribers/Packages/Billing/Reports/Tickets/Settings/Profile) or remove until pages exist.",
+    "Legal pages (Privacy/Terms/Refund): Effective/Last-updated date is hardcoded '01 January 2026'. Consider driving from a constant or CMS so this doesn't silently go stale.",
+    "xceednetApi.js: still uses non-standard 'Authentication' header instead of 'Authorization: Bearer <token>' (recurring from iter_2)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only per request)", "frontend": "100% (7/7 requested features verified end-to-end)"},
+  "test_credentials": "Admin: insightnetworks@hotmail.com / Cisco@12345 (from /app/memory/test_credentials.md) — verified working.",
+  "seed_data_creation": "None. Read-only tests only — no subscribers, invoices, or packages created/modified per constraints.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Preview URL: https://redirect-ai.preview.emergentagent.com. Admin login route is /admin-login and lands on /admin-dashboard (not /admin as spec said — but AdminDashboard mounts at /admin-dashboard route in App.js). Data-testids verified working: admin-login-page, email-input, password-input, submit-login-button, admin-dashboard-page, admin-welcome-banner, admin-logout-button, quick-dashboard/subscribers/packages/billing/reports/tickets/settings/profile, site-footer, footer-link-privacy/terms/refund, privacy-page, terms-page, refund-page. Live XceedNet numbers on 12 Jul 2026: Total=60, Online=39, Invoices=₹3,03,247.82, Tickets=4. Subscriber portal Print/Download buttons were intentionally NOT tested (no subscriber creds available). Do NOT click Add Subscriber / Edit / Delete on admin table — writes to live XceedNet API.",
+  "verified_flows": {
+    "marketing_homepage_hero_regression": "PASS — 'Smart Networks. Stronger Business. Better Tomorrow.' hero renders",
+    "privacy_page_loads": "PASS — /privacy renders privacy-page testid, 'Privacy' title & 'Grievance Officer' block visible",
+    "terms_page_loads": "PASS — /terms renders terms-page testid, 'Terms of Service' heading visible",
+    "refund_page_loads": "PASS — /refund renders refund-page testid, 'Refund & Cancellation Policy' heading visible",
+    "footer_legal_column_and_navigation": "PASS — footer-link-privacy, footer-link-terms, footer-link-refund visible & clickable; navigation to /privacy /terms /refund verified",
+    "admin_login_valid_credentials": "PASS — insightnetworks@hotmail.com / Cisco@12345 redirects to /admin-dashboard",
+    "admin_welcome_banner_and_meta_cards": "PASS — Shield icon + 'Welcome back, Administrator' + 4 meta cards (Role: Location Admin, Location: Bhopal, Last Login: 12 Jul 11:46 am, Today: Sun, 12 Jul) + 8 quick-access buttons + Logout inside banner",
+    "kpi_cards_live_data": "PASS — Total=60, Online=39, Invoices=₹3,03,247.82, Tickets=4",
+    "admin_logout_redirect": "PASS — clears xceednet_token & user_type in localStorage, redirects to /admin-login (fix from iter_2 confirmed)"
+  }
+}

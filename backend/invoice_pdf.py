@@ -309,10 +309,10 @@ def build_invoice_pdf(inv: Dict[str, Any]) -> bytes:
 
     # --------- BILL TO panel (left) ---------------------------------------
     panel_top = body_top - 16 * mm
-    # BILL TO tab
-    c.setFillColor(BLUE)
+    # BILL TO tab — light blue with navy text (matches reference)
+    c.setFillColor(LIGHT_BLUE_BG)
     c.roundRect(15 * mm, panel_top - 6 * mm, 32 * mm, 6 * mm, 1 * mm, fill=1, stroke=0)
-    c.setFillColor(WHITE)
+    c.setFillColor(NAVY)
     c.setFont(FONT_B, 9)
     c.drawString(20 * mm, panel_top - 4.5 * mm, "BILL TO")
 
@@ -342,9 +342,9 @@ def build_invoice_pdf(inv: Dict[str, Any]) -> bytes:
     # --------- INVOICE FOR panel (middle) ---------------------------------
     inv_for_x = 100 * mm
     inv_for_w = 45 * mm
-    c.setFillColor(BLUE)
+    c.setFillColor(LIGHT_BLUE_BG)
     c.roundRect(inv_for_x, panel_top - 6 * mm, 40 * mm, 6 * mm, 1 * mm, fill=1, stroke=0)
-    c.setFillColor(WHITE)
+    c.setFillColor(NAVY)
     c.setFont(FONT_B, 9)
     c.drawString(inv_for_x + 5, panel_top - 4.5 * mm, "INVOICE FOR")
 
@@ -434,9 +434,10 @@ def build_invoice_pdf(inv: Dict[str, Any]) -> bytes:
         colWidths=[16 * mm, 55 * mm, 34 * mm, 12 * mm, 30 * mm, 30 * mm],
     )
     items_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), BLUE),
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
         ("BOX", (0, 0), (-1, -1), 0.5, GREY_200),
         ("INNERGRID", (0, 0), (-1, -1), 0.25, GREY_200),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, colors.HexColor("#F5F5F5")]),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 6),
         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
@@ -451,9 +452,9 @@ def build_invoice_pdf(inv: Dict[str, Any]) -> bytes:
     # Amount in words box (left, ~55% width)
     aw_w = 110 * mm
     aw_h = 28 * mm
-    c.setFillColor(BLUE)
+    c.setFillColor(LIGHT_BLUE_BG)
     c.roundRect(15 * mm, words_top - 7 * mm, 55 * mm, 7 * mm, 1 * mm, fill=1, stroke=0)
-    c.setFillColor(WHITE)
+    c.setFillColor(NAVY)
     c.setFont(FONT_B, 9)
     c.drawString(20 * mm, words_top - 5 * mm, "AMOUNT IN WORDS")
 
@@ -506,8 +507,8 @@ def build_invoice_pdf(inv: Dict[str, Any]) -> bytes:
         c.drawRightString(totals_x + totals_w - 3, y_cursor - row_h + 1.8 * mm, val)
         y_cursor -= row_h
 
-    # Grand total row (highlighted blue)
-    c.setFillColor(BLUE)
+    # Grand total row (highlighted navy — matches reference)
+    c.setFillColor(NAVY)
     c.rect(totals_x, y_cursor - row_h - 1 * mm, totals_w, row_h + 1 * mm, fill=1, stroke=0)
     c.setFillColor(WHITE)
     c.setFont(FONT_B, 10)

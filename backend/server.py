@@ -1532,6 +1532,118 @@ def _build_account_statement_pdf(
     story.append(tiles)
     story.append(Spacer(1, 16))
 
+    # ------- TRANSACTION LEDGER (date-wise with running balance) ---------
+    def _parse_amount(val):
+        try:
+            s = str(val or "").replace("\u20b9", "").replace(",", "").strip()
+            return float(s) if s else 0.0
+        except Exception:
+            return 0.0
+
+    def _parse_date(val):
+        s = str(val or "").strip()
+        for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(s[:10], fmt).date()
+            except Exception:
+                pass
+        return None
+
+    ledger_entries = []
+    for inv in invoices:
+        d = _parse_date(inv.get("invoice_date"))
+        amt = _parse_amount(inv.get("amount"))
+        if amt > 0:
+            ledger_entries.append({
+                "date": d, "date_str": str(inv.get("invoice_date") or "-"),
+                "ref": str(inv.get("invoice_no") or inv.get("id") or "-"),
+                "desc": "Invoice raised" + (f" ({inv.get('description')})" if inv.get("description") else ""),
+                "debit": amt, "credit": 0.0,
+            })
+    for p in payments:
+        d = _parse_date(p.get("payment_date"))
+        amt = _parse_amount(p.get("amount"))
+        if amt > 0:
+            mode = (p.get("mode_of_payment") or "").replace("_", " ").title() or ""
+            ledger_entries.append({
+                "date": d, "date_str": str(p.get("payment_date") or "-"),
+                "ref": str(p.get("payment_no") or p.get("id") or "-"),
+                "desc": "Payment received" + (f" ({mode})" if mode else ""),
+                "debit": 0.0, "credit": amt,
+            })
+    # Sort by date (None dates go last)
+    ledger_entries.sort(key=lambda e: (e["date"] is None, e["date"] or ""))
+
+    opening_balance = 0.0  # No historical data available — start from zero
+    running = opening_balance
+
+    story.append(P("TRANSACTION LEDGER", size=12, color=NAVY, bold=True))
+    story.append(Spacer(1, 6))
+
+    ledger_header = [
+        P("DATE", size=8, color=colors.white, bold=True),
+        P("PARTICULARS", size=8, color=colors.white, bold=True),
+        P("REF NO.", size=8, color=colors.white, bold=True),
+        P("DEBIT (\u20b9)", size=8, color=colors.white, bold=True, align=TA_RIGHT),
+        P("CREDIT (\u20b9)", size=8, color=colors.white, bold=True, align=TA_RIGHT),
+        P("BALANCE (\u20b9)", size=8, color=colors.white, bold=True, align=TA_RIGHT),
+    ]
+    ledger_rows = [ledger_header]
+
+    # Opening balance row
+    ledger_rows.append([
+        P(datetime.now().strftime("01-%b-%Y"), size=8.5, color=NAVY, bold=True),
+        P("<b>Opening Balance</b>", size=8.5, color=NAVY, bold=True),
+        P("—", size=8.5, color=GREY_500, align=TA_CENTER),
+        P("—", size=8.5, color=GREY_500, align=TA_RIGHT),
+        P("—", size=8.5, color=GREY_500, align=TA_RIGHT),
+        P(f"<b>{opening_balance:,.2f}</b>", size=8.5, color=NAVY, bold=True, align=TA_RIGHT),
+    ])
+
+    for e in ledger_entries:
+        running = running + e["debit"] - e["credit"]
+        ledger_rows.append([
+            P(e["date_str"], size=8.5, color=NAVY),
+            P(e["desc"], size=8.5, color=NAVY),
+            P(e["ref"], size=8.5, color=NAVY, bold=True),
+            P(f"{e['debit']:,.2f}" if e["debit"] else "—",
+              size=8.5, color=NAVY if e["debit"] else GREY_500, align=TA_RIGHT),
+            P(f"{e['credit']:,.2f}" if e["credit"] else "—",
+              size=8.5, color=GREEN if e["credit"] else GREY_500, align=TA_RIGHT, bold=bool(e["credit"])),
+            P(f"{running:,.2f}", size=8.5, color=NAVY, bold=True, align=TA_RIGHT),
+        ])
+
+    # Closing balance row (highlighted)
+    closing_balance = running
+    ledger_rows.append([
+        P(datetime.now().strftime("%d-%b-%Y"), size=9, color=colors.white, bold=True),
+        P("<b>Closing Balance</b>", size=9, color=colors.white, bold=True),
+        P("—", size=9, color=colors.white, align=TA_CENTER),
+        P(f"{total_invoiced:,.2f}", size=9, color=colors.white, bold=True, align=TA_RIGHT),
+        P(f"{total_paid:,.2f}", size=9, color=colors.white, bold=True, align=TA_RIGHT),
+        P(f"<b>{closing_balance:,.2f}</b>", size=10, color=colors.white, bold=True, align=TA_RIGHT),
+    ])
+
+    ledger_table = Table(
+        ledger_rows,
+        colWidths=[22 * mm, 56 * mm, 26 * mm, 22 * mm, 22 * mm, 26 * mm],
+    )
+    ledger_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("BACKGROUND", (0, 1), (-1, 1), LIGHT_BLUE),
+        ("BACKGROUND", (0, -1), (-1, -1), NAVY),
+        ("BOX", (0, 0), (-1, -1), 0.5, GREY_200),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, GREY_200),
+        ("ROWBACKGROUNDS", (0, 2), (-1, -2), [colors.white, GREY_50]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    story.append(ledger_table)
+    story.append(Spacer(1, 16))
+
     # INVOICES section
     story.append(P("INVOICES", size=12, color=NAVY, bold=True))
     story.append(Spacer(1, 6))
