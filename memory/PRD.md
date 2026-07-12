@@ -60,3 +60,27 @@ Hero: **"Smart Networks. Stronger Business. Better Tomorrow."**
 - Testimonials, coverage-area map, WhatsApp click-to-chat button
 - SEO meta + sitemap.xml + Open Graph images
 - Blog / news section
+
+## Changes (2026-01-12, second batch)
+### Invoice PDF redesign
+- Bill-To / Invoice-For section headers: light-blue bg (`#D4E5FC`) + navy text (previously solid blue + white) — matches customer reference
+- Line-items table header: navy (`#0A1A33`) with white text (previously accent blue)
+- TOTAL AMOUNT row: navy background with white text (previously accent blue)
+- Line-items zebra striping: alternating `#FFFFFF` / `#F5F5F5`
+- Amount-in-Words label: navy text on light-blue chip
+- Verified: 562 KB `%PDF-1.4` output, all 5 refinements confirmed by AI visual analysis
+
+### Account Statement redesign
+- New **TRANSACTION LEDGER** section: 6 columns (Date · Particulars · Ref No. · Debit ₹ · Credit ₹ · Balance ₹)
+- **Opening Balance** row (light-blue) + date-wise invoice/payment entries with running balance + **Closing Balance** row (navy, white text)
+- Kept the existing subscriber summary, tiles, INVOICES table, and PAYMENT HISTORY table below the ledger for full audit view
+
+### Print functionality
+- Backend: no change (PDF endpoints already return `application/pdf`)
+- Frontend: added `printInvoicePdf(id)` and `printAccountStatement()` to `xceednetApi.js` — uses a hidden iframe + `contentWindow.print()` with fallback to opening in a new tab
+- Added **Print** button on the Invoices list (next to Download PDF) with `data-testid="print-invoice-<id>"`
+- Added **Print** button in the Subscriber welcome banner next to Download Statement (`data-testid="print-statement-button"`)
+
+## Verification
+- Iteration 3 testing agent: 7/7 flows PASS at 100% (marketing regression, /privacy /terms /refund pages, footer legal column, admin login, admin welcome banner, logout redirect fix, live KPI cards showing 60 subs / 39 online / ₹3,03,247.82 / 4 tickets)
+- Backend PDF endpoints verified via curl on both invoice + statement
