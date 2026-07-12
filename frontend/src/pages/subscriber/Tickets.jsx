@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LifeBuoy, Plus, RefreshCw, MessageCircle } from "lucide-react";
 import xceednetApi from "../../services/xceednetApi";
@@ -41,7 +41,7 @@ export default function Tickets() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
       const r = await xceednetApi.getSubscriberTickets({ length: 100 });
@@ -57,11 +57,11 @@ export default function Tickets() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     fetchTickets();
-  }, []);
+  }, [fetchTickets]);
 
   return (
     <div data-testid="tickets-page">

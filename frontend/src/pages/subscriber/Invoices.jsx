@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileText, Download, RefreshCw, Search, IndianRupee, CreditCard, Printer } from "lucide-react";
 import xceednetApi from "../../services/xceednetApi";
@@ -31,7 +31,7 @@ export default function Invoices() {
   const [printingId, setPrintingId] = useState(null);
   const [payingId, setPayingId] = useState(null);
 
-  const fetchInvoices = async (search = "") => {
+  const fetchInvoices = useCallback(async (search = "") => {
     try {
       setLoading(true);
       const r = await xceednetApi.getSubscriberInvoices({ q: search, length: 100 });
@@ -49,11 +49,11 @@ export default function Invoices() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
+  }, [fetchInvoices]);
 
   const handleSearch = (e) => {
     e.preventDefault();
